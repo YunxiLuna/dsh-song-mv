@@ -1,0 +1,157 @@
+{
+  "title": "synthetic demo — every scene once",
+  "duration": 54,
+  "lyricsFile": "lyrics.lrc",
+  "fps": 30,
+  "post": { "scan": 0.03 },
+  "safety": { "maxFlash": 0.7 },
+  "shots": [
+    {
+      "id": "01_keyboard",
+      "start": 0,
+      "end": 5,
+      "palette": "still",
+      "enter": "cut",
+      "loud": false,
+      "scene": {
+        "type": "keyboard",
+        "params": {
+          "keyLabel": "delete",
+          "clock": "02:47  AM",
+          "place": "demo // floor 23"
+        }
+      }
+    },
+    {
+      "id": "02_desk",
+      "start": 5,
+      "end": 11,
+      "palette": "tender",
+      "enter": "dissolve",
+      "loud": false,
+      "scene": {
+        "type": "desk",
+        "params": {
+          "inboxTitle": "inbox",
+          "inboxCount": 12,
+          "inboxRows": [
+            ["Calendar", "standup in 5 minutes", "09:55"],
+            ["System", "you have 12 unread messages", "09:51"],
+            ["Build", "pipeline failed on main", "09:47"],
+            ["Boss", "quick question", "09:40"],
+            ["Bot", "reminder: water the plant", "09:32"]
+          ]
+        }
+      }
+    },
+    {
+      "id": "03_stamp",
+      "start": 11,
+      "end": 18,
+      "palette": "build",
+      "enter": "wipe",
+      "loud": true,
+      "scene": {
+        "type": "stampScene",
+        "params": {
+          "stampText": "DELETED",
+          "slides": [
+            { "title": "Weekly sync", "bullets": 4 },
+            { "title": "Roadmap v3", "bullets": 5 },
+            { "title": "KPI: 12%", "bullets": 3 }
+          ]
+        }
+      }
+    },
+    {
+      "id": "04_empty",
+      "start": 18,
+      "end": 25,
+      "palette": "tender",
+      "enter": "dissolve",
+      "loud": false,
+      "scene": { "type": "emptyScene", "params": {} }
+    },
+    {
+      "id": "05_call",
+      "start": 25,
+      "end": 32,
+      "palette": "intense",
+      "enter": "cut",
+      "loud": true,
+      "scene": {
+        "type": "call110",
+        "params": {
+          "hitLine": "delete",
+          "number": "110",
+          "caller": "night shift",
+          "dialing": "calling…",
+          "connectedLabel": "connected",
+          "hangUp": "hang up",
+          "reply": "110 emergency line. go ahead.",
+          "callDelay": 0.5,
+          "connectAfter": 2.4,
+          "noteKicker": "night shift",
+          "noteTitle": "quietly going crazy",
+          "noteSource": "— a listener",
+          "tickerLabel": "comments",
+          "tickerText": "no overtime · no more meetings · out of office · deleting myself"
+        }
+      }
+    },
+    {
+      "id": "06_erase",
+      "start": 32,
+      "end": 38,
+      "palette": "intense",
+      "enter": "glitch",
+      "loud": true,
+      "scene": { "type": "erase", "params": {} }
+    },
+    {
+      "id": "07_void",
+      "start": 38,
+      "end": 44,
+      "palette": "peak",
+      "enter": "glitch",
+      "loud": true,
+      "scene": {
+        "type": "voidScene",
+        "params": {
+          "albumAt": 4.5,
+          "albumTitle": "Album Title",
+          "albumSubtitle": "song-mv · synthetic demo"
+        }
+      }
+    },
+    {
+      "id": "08_kitchen",
+      "start": 44,
+      "end": 48,
+      "palette": "dawn",
+      "enter": "dissolve",
+      "loud": false,
+      "scene": {
+        "type": "kitchenScene",
+        "params": { "punchline": "some things cannot be deleted." }
+      }
+    },
+    {
+      "id": "09_logout",
+      "start": 48,
+      "end": 54,
+      "palette": "dawn",
+      "enter": "cut",
+      "loud": false,
+      "scene": {
+        "type": "logout",
+        "params": {
+          "question": ["if this dull life is a game,", "would you press quit?"],
+          "cancelLabel": "cancel",
+          "quitLabel": "quit",
+          "endText": "song-mv"
+        }
+      }
+    }
+  ]
+}

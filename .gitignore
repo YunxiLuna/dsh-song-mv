@@ -1,0 +1,31 @@
+# --- your inputs: never commit these ---
+demo-input/
+assets/audio/
+*.mp3
+*.flac
+*.wav
+*.m4a
+*.aac
+*.ogg
+*.lrc
+*.ttf
+*.otf
+*.woff
+*.woff2
+
+# --- generated output ---
+out/
+*.mp4
+*.mov
+!docs/demo/*.webm
+
+# --- node ---
+node_modules/
+npm-debug.log*
+.pnpm-store/
+
+# --- editors / os ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

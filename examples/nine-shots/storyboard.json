@@ -1,0 +1,256 @@
+{
+  "title": "nine shots — example arc",
+  "duration": 181.5,
+  "lyricsFile": "lyrics.lrc",
+  "post": {
+    "scan": 0.03
+  },
+  "safety": {
+    "maxFlash": 0.7,
+    "preroll": 0
+  },
+  "reactive": {
+    "beatDecay": 6,
+    "onsetDecay": 9,
+    "strongOnset": 0.35
+  },
+  "shots": [
+    {
+      "id": "01_keyboard",
+      "start": 0,
+      "end": 13.1,
+      "palette": "still",
+      "enter": "dissolve",
+      "scene": {
+        "type": "keyboard",
+        "params": {
+          "keyLabel": "delete",
+          "clock": "02:47  AM",
+          "place": "office // floor 23"
+        }
+      }
+    },
+    {
+      "id": "02_desk",
+      "start": 13.1,
+      "end": 39.1,
+      "palette": "tender",
+      "enter": "glitch",
+      "scene": {
+        "type": "desk",
+        "params": {
+          "inboxTitle": "收件箱",
+          "inboxCount": 47,
+          "inboxRows": [
+            [
+              "HR 部门",
+              "请确认本周加班申请",
+              "02:31"
+            ],
+            [
+              "客户 A",
+              "需求变更 v7（紧急）",
+              "02:19"
+            ],
+            [
+              "项目经理",
+              "明早 9 点评审，材料准备",
+              "01:58"
+            ],
+            [
+              "财务",
+              "报销单被驳回：缺少发票",
+              "01:40"
+            ],
+            [
+              "系统",
+              "你有 47 条未读消息",
+              "01:22"
+            ],
+            [
+              "老板",
+              "在吗？",
+              "00:47"
+            ],
+            [
+              "同事",
+              "这个能今天给我吗",
+              "00:12"
+            ]
+          ],
+          "cards": [
+            {
+              "app": "企微",
+              "text": "@all 周报 18:00 前提交",
+              "hot": true
+            },
+            {
+              "app": "邮件",
+              "text": "客户需求变更 v7 · 紧急",
+              "hot": true
+            },
+            {
+              "app": "日历",
+              "text": "Q3 复盘会 09:00",
+              "hot": false
+            },
+            {
+              "app": "老板",
+              "text": "在吗？",
+              "hot": true
+            },
+            {
+              "app": "表格",
+              "text": "KPI 完成度 12%",
+              "hot": true
+            },
+            {
+              "app": "HR",
+              "text": "加班申请待审批",
+              "hot": false
+            },
+            {
+              "app": "系统",
+              "text": "你有 47 条未读消息",
+              "hot": true
+            },
+            {
+              "app": "项目",
+              "text": "Deadline: 3 小时后",
+              "hot": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "03_stamp",
+      "start": 39.1,
+      "end": 65.8,
+      "palette": "build",
+      "enter": "wipe",
+      "loud": true,
+      "scene": {
+        "type": "stampScene",
+        "params": {
+          "stampText": "DELETED",
+          "slides": [
+            {
+              "title": "Q3 战略复盘",
+              "bullets": 4
+            },
+            {
+              "title": "Roadmap v3",
+              "bullets": 3
+            },
+            {
+              "title": "KPI 完成度 12%",
+              "bullets": 5
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "04_empty",
+      "start": 65.8,
+      "end": 95.1,
+      "palette": "tender",
+      "enter": "dissolve",
+      "scene": {
+        "type": "emptyScene",
+        "params": {}
+      }
+    },
+    {
+      "id": "05_call110",
+      "start": 95.1,
+      "end": 119.8,
+      "palette": "intense",
+      "enter": "cut",
+      "scene": {
+        "type": "call110",
+        "params": {
+          "callDelay": 0.5,
+          "connectAfter": 3.7,
+          "number": "110",
+          "dialing": "正在呼叫",
+          "connectedLabel": "已接通",
+          "hangUp": "挂断",
+          "caller": "你好，我需要帮助。",
+          "reply": "请讲，我在听。",
+          "noteKicker": "夜班",
+          "noteTitle": "熬到凌晨，居然有点轻松",
+          "noteSource": "— 一条留言",
+          "hitLine": "delete",
+          "popLine": "never|always",
+          "busyLine": "busy|ppt|meeting|strategy",
+          "tickerLabel": "热评",
+          "tickerText": "deadline deadline deadline   ·   nobody answers the mail   ·   keep it light   ·   keep it moving"
+        }
+      }
+    },
+    {
+      "id": "06_erase",
+      "start": 119.8,
+      "end": 142.3,
+      "palette": "intense",
+      "enter": "glitch",
+      "loud": true,
+      "scene": {
+        "type": "erase",
+        "params": {}
+      }
+    },
+    {
+      "id": "07_void",
+      "start": 142.3,
+      "end": 166.5,
+      "palette": "peak",
+      "enter": "glitch",
+      "loud": true,
+      "scene": {
+        "type": "voidScene",
+        "params": {
+          "albumAt": 14.3,
+          "albumTitle": "Album Title",
+          "albumSubtitle": "Artist  ·  Track",
+          "stampLine": "delete",
+          "splitLine": "out|leave|gone"
+        }
+      }
+    },
+    {
+      "id": "08_kitchen",
+      "start": 166.5,
+      "end": 175.5,
+      "palette": "dawn",
+      "enter": "dissolve",
+      "scene": {
+        "type": "kitchenScene",
+        "params": {
+          "punchline": "有一些东西，是删不掉的。"
+        }
+      }
+    },
+    {
+      "id": "09_logout",
+      "start": 175.5,
+      "end": 181.5,
+      "palette": "dawn",
+      "enter": "cut",
+      "scene": {
+        "type": "logout",
+        "params": {
+          "question": [
+            "如果枯燥的人生是一场游戏，",
+            "你会按退出键吗？"
+          ],
+          "cancelLabel": "取消",
+          "quitLabel": "退出",
+          "endText": "— 删 除 —"
+        }
+      }
+    }
+  ]
+}

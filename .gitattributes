@@ -1,0 +1,6 @@
+# Normalise line endings: the repo is developed on Windows and read on Linux.
+* text=auto eol=lf
+
+*.png  binary
+*.webm binary
+*.jpg  binary

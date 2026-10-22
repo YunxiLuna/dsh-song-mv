@@ -1,0 +1,56 @@
+{
+  "name": "dsh-song-mv",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "description": "Turn a song into a code-rendered music video: beat-synced scenes, kinetic lyrics, story props — a DSH plugin plus CLI.",
+  "main": "./lib/index.js",
+  "license": "MIT",
+  "bin": {
+    "song-mv": "./tools/cli.mjs"
+  },
+  "exports": {
+    ".": "./lib/index.js",
+    "./engine": "./engine/core.mjs",
+    "./scenes": "./engine/scenes.mjs",
+    "./icon": "./icon.svg",
+    "./locale/*.json": "./locale/*.json",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "engine",
+    "tools",
+    "skills",
+    "docs",
+    "!docs/demo/*.webm",
+    "examples",
+    "locale",
+    "icon.svg",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE",
+    "THIRD-PARTY-NOTICES.md"
+  ],
+  "engines": {
+    "node": ">=20.10"
+  },
+  "dependencies": {
+    "canvas": "^3.2.3"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "music-video",
+    "canvas",
+    "ffmpeg",
+    "lyrics",
+    "generative"
+  ],
+  "icon": "./icon.svg"
+}
