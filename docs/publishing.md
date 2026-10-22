@@ -42,7 +42,12 @@ grep -rn --include='*.mjs' --include='*.json' --include='*.md' \
   -e 'some line from the song' -e 'another line' . | grep -v node_modules
 ```
 
-Expected output: nothing outside your own ignored `demo-input/`. If the hits are
+Expected output: nothing outside your own ignored `demo-input/`.
+
+Do this *before* the first push, not after. Once a commit is public, rewriting
+history removes it from `git log`, but the old objects can stay fetchable by SHA
+for a while and forks or mirrors keep their own copies. A clean first commit is
+much cheaper than an apology. If the hits are
 in `examples/`, replace them with placeholder copy — the storyboard is supposed
 to describe *shot structure*, not to transcribe anyone's lyrics. Also check that
 regex defaults in the engine are neutral (`"delete"`, not an actual hook line).
