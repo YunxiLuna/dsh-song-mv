@@ -10,6 +10,9 @@
 // Usage:
 //   GITHUB_TOKEN=$(gh auth token) node tools/push-via-api.mjs [owner/repo] [-m "message"]
 //
+// A quoted message is also accepted without -m:
+//   node tools/push-via-api.mjs "docs: fix the install steps"
+//
 // With no owner/repo it reads the `origin` remote. The commit is chained onto
 // the existing branch head, so repeat runs append history like a normal push.
 // This is a fallback, not the default workflow — prefer `git push`.
@@ -25,6 +28,19 @@ function arg(name, fallback) {
   return i > -1 ? process.argv[i + 1] : fallback;
 }
 
+/** Everything on the command line that is neither a flag nor an owner/repo slug. */
+function freeText() {
+  const out = [];
+  for (let i = 2; i < process.argv.length; i++) {
+    const a = process.argv[i];
+    if (a === '-m') { i++; continue; }
+    if (a.startsWith('-')) continue;
+    if (/^[\w.-]+\/[\w.-]+$/.test(a)) continue;
+    out.push(a);
+  }
+  return out.join(' ').trim();
+}
+
 function slug() {
   const explicit = process.argv[2];
   if (explicit && /^[\w.-]+\/[\w.-]+$/.test(explicit)) return explicit;
@@ -35,7 +51,7 @@ function slug() {
 }
 
 const [OWNER, REPO] = slug().split('/');
-const MESSAGE = arg('-m', 'update from push-via-api');
+const MESSAGE = arg('-m', '') || freeText() || 'update from push-via-api';
 const TOKEN = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
 if (!TOKEN) {
   console.error('set GITHUB_TOKEN: GITHUB_TOKEN=$(gh auth token) node tools/push-via-api.mjs');
