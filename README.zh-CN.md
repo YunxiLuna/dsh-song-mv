@@ -132,7 +132,7 @@ shot                     type        len   score   pixels  shift  frames
 
 **二、画面清单。** 五到八个具体的东西，每一条都能对应到某句歌词。"纸船顺着雨水沟漂下去"是画面，"悲伤"不是。某一段实在没东西可拍，就回去重读那句词，而不是把上一首歌的场景搬过来。
 
-调色板和新增色世界见 `docs/looks.md`；没有现成场景可放时，怎么写一个 25 行的场景见 `docs/writing-a-scene.md`。`examples/nine-shots` 里那九个办公室场景是某一首歌的道具，留作范例——见[关于那首测试曲](#关于那首测试曲)。
+调色板和新增色世界见 `docs/looks.md`；没有现成场景可放时，怎么写一个 25 行的场景见 `docs/writing-a-scene.md`。那九个办公室场景是某一首歌的道具，留在 `docs/scenes.md` 里备查，不进示例。
 
 ---
 
@@ -269,7 +269,7 @@ node tools/qa.mjs --file out/mv.mp4
 - 镜头要无缝铺满时间轴。不能有空档、不能重叠，最后一个 `end` 等于歌曲时长。
 - `palette` 是情绪状态，不是配色。look 把 `still`、`peak`、`dawn` 翻译成具体颜色：`peak` 就是这个色世界里最响的那一档。场景只读 `p.accent`、`p.text` 这类字段，换 look 等于整片换气。
 - `enter` 是镜头怎么进来。`glitch` 留给鼓点砸下来的地方。
-- 文案都在 `params` 里。demo 里出现的每一句话都写在它自己的分镜里，不在引擎里。`examples/generic-field/storyboard.json` 是能用任何歌跑的通用示例；`examples/nine-shots/storyboard.json` 是那首办公室的歌的完整九镜，看结构可以，别照着抄到别的歌上。
+- 文案都在 `params` 里。demo 里出现的每一句话都写在它自己的分镜里，不在引擎里。`examples/synthetic-demo/storyboard.json` 是一份用合成音轨跑的六镜示例——**它是方法演示，不是模板**，不要照抄它的镜头表；`examples/scenes/coffee.mjs` 是整九镜，看结构可以，别照着抄到别的歌上。
 
 完整 schema 见 [docs/storyboard.md](docs/storyboard.md)，场景目录和每个参数见 [docs/scenes.md](docs/scenes.md)。
 
@@ -325,7 +325,7 @@ tools/
   cli.mjs         统一入口
   lib/analyze.mjs 纯 JS 的 FFT / mel / 节拍网格（不用 Python，不用 librosa）
 skills/song-mv/   给 agent 的工作流
-examples/         分镜示例：nine-shots（完整九镜，占位文案）、synthetic-demo（全原创）
+examples/         示例：synthetic-demo（合成音轨的方法演示）、scenes/（手写场景）
 docs/             分镜 schema、场景目录、渲染模型、demo 素材
 ```
 

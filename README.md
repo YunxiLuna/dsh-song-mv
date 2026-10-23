@@ -166,8 +166,9 @@ reuse a scene from the last song.
 
 `docs/looks.md` covers the palettes and how to add a world.
 `docs/writing-a-scene.md` walks through writing a 25-line scene when nothing
-shipped fits. The nine office scenes in `examples/nine-shots` are one song's
-props, kept as a worked example — see [the demo note](#a-note-on-the-test-song).
+shipped fits. The nine office scenes are one song's props; they are documented in
+[docs/scenes.md](docs/scenes.md) as a worked example, not shipped as a storyboard,
+because copying someone's shot list is how every video starts to look alike.
 
 ---
 
@@ -317,7 +318,7 @@ A few things worth knowing:
   palette recolours everything.
 - `enter` is how a shot comes in. `glitch` is the one for when the beat hits.
 - `params` carry the copy. Every string the demo shows comes from its storyboard,
-  not from the engine. `examples/nine-shots/storyboard.json` is a full nine-shot
+  not from the engine. `examples/synthetic-demo/storyboard.json` is a six-shot
   arc you can copy and rewrite line by line.
 
 Schema: [docs/storyboard.md](docs/storyboard.md). Scenes and their parameters:
@@ -397,7 +398,7 @@ tools/
   cli.mjs         one entry point for all of the above
   lib/analyze.mjs pure-JS FFT / mel bands / tempo grid (no Python, no librosa)
 skills/song-mv/   the agent-facing workflow
-examples/         storyboards: generic-field (any song), nine-shots (the office pack), synthetic-demo
+examples/         synthetic-demo (a neutral 54 s track) and scenes/ (a hand-written scene)
 docs/             looks, scene catalogue, scene authoring, storyboard schema, rendering model, demo
 ```
 

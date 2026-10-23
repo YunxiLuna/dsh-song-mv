@@ -196,8 +196,21 @@ export function parseLrc(path) {
     text = text.replace(INLINE_TAG, '').trim();
     if (!text || !times.length) continue;
 
+    // A line tag is often the moment the line is *displayed*, a beat or two before
+    // the vocal; the first inline mark is when it is actually sung. When both
+    // exist and disagree, the mark is the truth the ear checks against — using the
+    // tag makes the text sit there un-sung, which reads as "the lyrics are late".
+    const tagT = times[0];
+    const sungT = words && words.length ? words[0].t : tagT;
+
     for (const t of times) {
-      rows.push({ t, text, words: words ? words.map((w) => ({ t: w.t, text: w.text })) : null });
+      rows.push({
+        t,
+        tagT,
+        sungT,
+        text,
+        words: words ? words.map((w) => ({ t: w.t, text: w.text })) : null,
+      });
     }
   }
 
@@ -210,18 +223,27 @@ export function parseLrc(path) {
   return rows;
 }
 
+export function displayAt(line) {
+  return line && line.sungT != null ? line.sungT : line.t;
+}
+
 export class Lyrics {
   constructor(data) { this.lines = data; }
+  // `display` is when the line should appear. It follows the vocal, not the tag,
+  // and never runs past the previous line's own vocal start.
   activeAt(t) {
     let cur = null, next = null;
     for (const L of this.lines) {
-      if (L.t <= t) cur = L; else { next = L; break; }
+      if (displayAt(L) <= t) cur = L; else { next = L; break; }
     }
+    // Scenes compare `cur.t` with the song clock, so hand them a view whose `t`
+    // is the display time. Everything else on the line is untouched.
+    if (cur && cur.t !== displayAt(cur)) cur = { ...cur, t: displayAt(cur) };
     return { cur, next };
   }
   lineAge(t) {
     const { cur } = this.activeAt(t);
-    return cur ? t - cur.t : -1;
+    return cur ? t - displayAt(cur) : -1;
   }
 }
 

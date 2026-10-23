@@ -1424,25 +1424,37 @@ export function designed(ctx, tv, f, P = { start: 0 }) {
 export function typeOnly(ctx, tv, f, P = { 'start': 0.0 }) {
   const p = ctx.pal, g = ctx.g;
   ctx.clear();
-  const { cur } = lyricsOf(ctx).activeAt(tv);
 
+  const lyr = lyricsOf(ctx);
+  const { cur, next } = lyr.activeAt(tv);
+  const lines = P.lines ?? (cur ? [cur.text] : []);
+  const size = P.size ?? 104;
+  const layout = P.layout ?? 'stack';
+  const leftX = 300;
+  const s0 = cur ? cur.t : P.start;
+  const age = tv - s0;
+
+  // The page: paper, a faint echo of the line at 20x the size, drifting. Without
+  // it a type card is a still image with letters on it.
   g.fillStyle = hexA(p.bg, 1);
   g.fillRect(0, 0, 1920, 1080);
   if (P.grain !== false) grainField(g, p, tv, f, { alpha: 0.1 });
 
-  const layout = P.layout ?? 'stack';
-  const lines = P.lines ?? (cur ? [cur.text] : []);
-  const size = P.size ?? 104;
-  const leftX = 300;
-
-  if (layout === 'column') {
-    g.strokeStyle = hexA(p.line, 0.55);
-    g.lineWidth = 2;
-    g.beginPath();
-    g.moveTo(leftX - 46, 210);
-    g.lineTo(leftX - 46, 210 + lines.length * size * 1.34);
-    g.stroke();
+  const subject = (lines[0] ?? '').slice(0, 12);
+  if (subject) {
+    g.save();
+    g.globalAlpha = 0.03;
+    g.font = `900 ${size * 3.4}px ${WORD}`;
+    g.fillStyle = p.text;
+    g.textAlign = 'left';
+    g.textBaseline = 'top';
+    const drift = ((tv * 34) % 700);
+    g.fillText(subject, leftX - 120 - drift, 560);
+    g.restore();
   }
+
+  // the whole block rises a little as the line ages: the frame is never still
+  const rise = Math.min(26, age * 9);
 
   if (P.kicker) {
     g.font = `600 20px ${MONO}`;
@@ -1454,12 +1466,13 @@ export function typeOnly(ctx, tv, f, P = { 'start': 0.0 }) {
 
   g.textBaseline = 'middle';
   const total = lines.length;
+
   lines.forEach((text, i) => {
-    const appear = (cur ? cur.t : P.start) + i * 0.24;
-    const k = clamp01((tv - appear) / 0.55);
+    const appear = s0 + i * 0.24;
+    const k = clamp01((tv - appear) / 0.5);
     if (k <= 0) return;
-    const e = easeOut(k);
-    const dy = (1 - e) * 30;
+    const e = 1 - Math.pow(1 - k, 3);
+    const dy = (1 - e) * 46 - rise;
 
     let x, y;
     if (layout === 'column') {
@@ -1471,12 +1484,19 @@ export function typeOnly(ctx, tv, f, P = { 'start': 0.0 }) {
     }
 
     g.globalAlpha = e;
+    // a slight scale on entry: type that grows into place reads as arrival
+    const sc = 0.965 + 0.035 * e;
+    g.save();
+    g.translate(x, y + dy);
+    g.scale(sc, sc);
+    g.translate(-x, -(y + dy));
+
     g.font = `800 ${size}px ${WORD}`;
     g.textAlign = layout === 'column' || P.align === 'left' ? 'left' : 'center';
     g.fillStyle = hexA(p.text, 1);
 
+    let paintedAccent = false;
     if (P.accent) {
-      // one word in the accent colour: split on the first occurrence
       const word = P.accent;
       const at = text.toLowerCase().indexOf(word.toLowerCase());
       if (at >= 0) {
@@ -1490,11 +1510,20 @@ export function typeOnly(ctx, tv, f, P = { 'start': 0.0 }) {
         g.fillText(text.slice(at, at + word.length), startX + wBefore, y + dy);
         g.fillStyle = hexA(p.text, 1);
         g.fillText(after, startX + wBefore + wWord, y + dy);
-        g.globalAlpha = 1;
-        return;
+        paintedAccent = true;
       }
     }
-    g.fillText(text, x, y + dy);
+    if (!paintedAccent) g.fillText(text, x, y + dy);
+
+    // a rule that draws itself under the current line
+    const w = g.measureText(text).width;
+    const rx = g.textAlign === 'center' ? x - w / 2 : x;
+    const grow = clamp01((tv - appear - 0.18) / 0.8);
+    if (grow > 0) {
+      g.fillStyle = hexA(p.accentHot, 0.75 * e);
+      g.fillRect(rx, y + dy + size * 0.62, w * grow, Math.max(2, size * 0.035));
+    }
+    g.restore();
     g.globalAlpha = 1;
   });
 }
