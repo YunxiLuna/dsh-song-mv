@@ -990,7 +990,9 @@ export function field(ctx, tv, f, P = { 'start': 0.0 }) {
   const p = ctx.pal, g = ctx.g;
   ctx.clear();
   const s = P.start ?? 0;
-  const t0 = tv - s;                       // seconds inside this shot
+  // `t0Offset` lets a cut inherit the timing of the block it belongs to: the
+  // elements keep their entrance and keyframes instead of replaying them.
+  const t0 = tv - s + (P.t0Offset ?? 0);                       // seconds inside this shot
   const cam = ctx.cam ?? { depth: () => ({ x: 0, y: 0 }) };
   const layer = P.layer ?? 'paper';
 

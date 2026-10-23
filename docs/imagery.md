@@ -120,6 +120,30 @@ Rules that keep a frame readable:
 `track` is letter-spacing in px (signage needs it), `pad` `[x, y]` is the plate's
 padding, `leading` overrides line height.
 
+## Cutting: three shots, not one
+
+A composition held for twenty seconds reads as a slide no matter how good the
+frame is. The working pattern is **three cuts per musical block**:
+
+| cut | lens | move | what it buys |
+|---|---|---|---|
+| 1 | the frame you designed | `push` at 0.06 | the establishing shot, wide enough to place the room |
+| 2 | same set, 2x closer | `panR` at 0.11, `inserts` mid-shot | a detail you would otherwise miss |
+| 3 | tightest, longest lens | `push` at 0.16 | the emotional landing |
+
+```json
+{ "id": "05_cup_3", "start": 98.4, "end": 108.0,
+  "scene": { "type": "designed", "params": {
+    "t0Offset": 12.0, "camera": "push", "cameraAmount": 0.16, "dof": 11 } } }
+```
+
+**`t0Offset` is what makes a cut feel like a cut and not a restart.** Elements
+animate from the start of their shot; without the offset every cut replays the
+entrances and keyframes. Set `t0Offset = this shot's start - the block's start`
+and the props carry on exactly where they were, while the lens and focus change.
+
+Cuts land on the block boundary, never mid-word: pick the split from the
+lyric times, not from an even division.
 ## Materials
 
 A fill gives an element a colour; a material gives it a **substance**. The
