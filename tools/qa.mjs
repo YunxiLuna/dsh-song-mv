@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { readFileSync } from 'node:fs';
 // song-mv qa — brightness and flash report for a rendered mp4.
 //
 //   node tools/qa.mjs --file out/mv.mp4 [--fps 10]
@@ -16,6 +17,7 @@ function parseArgs(argv) {
     if (a === '--file' || a === '-f') out.file = argv[++i];
     else if (a === '--threshold') out.threshold = Number(argv[++i]);
     else if (a === '--fps') out.fps = Number(argv[++i]);
+  else if (a === '--storyboard') out.storyboard = argv[++i];
   }
   return out;
 }
@@ -54,10 +56,25 @@ for (let i = 0; i < frames; i++) {
 const min = Math.min(...luma), max = Math.max(...luma);
 const avg = luma.reduce((a, b) => a + b, 0) / (luma.length || 1);
 const threshold = args.threshold ?? 40;
+
+// A cut is a large luma step on purpose. If the storyboard is supplied, the
+// first second of every shot is treated as a cut, not as a flash, so the gate
+// only reports steps that nobody asked for.
+let cutTimes = [];
+if (args.storyboard) {
+  const sb = JSON.parse(readFileSync(args.storyboard, 'utf8'));
+  cutTimes = (sb.shots ?? []).map((sh) => sh.start).filter((v) => typeof v === 'number');
+}
+const isCut = (t) => cutTimes.some((c) => Math.abs(t - c) <= 1.2);
+
 const flashes = [];
+const cuts = [];
 for (let i = 1; i < luma.length; i++) {
   const d = Math.abs(luma[i] - luma[i - 1]);
-  if (d > threshold) flashes.push({ t: i / FPS, d: +d.toFixed(1) });
+  if (d <= threshold) continue;
+  const hit = { t: i / FPS, d: +d.toFixed(1) };
+  if (isCut(hit.t)) cuts.push(hit);
+  else flashes.push(hit);
 }
 
 const spark = luma
@@ -78,5 +95,8 @@ if (flashes.length) {
   if (flashes.length > 12) console.log(`  … ${flashes.length - 12} more`);
 } else {
   console.log(`flashes above ${threshold}: none`);
+}
+if (cuts.length) {
+  console.log(`cuts (expected, inside 1.2 s of a shot start): ${cuts.length}`);
 }
 if (avg < 12) console.log('\nwarning: the video is very dark on average — check the palette before shipping.');
