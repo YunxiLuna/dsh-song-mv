@@ -41,8 +41,15 @@ const features = JSON.parse(fs.readFileSync(args.features, 'utf8'));
 
 await loadUserScenes(storyboard, storyboardPath);
 
+// Render at the storyboard's real resolution: scenes position things in absolute
+// coordinates, so measuring at half size would evaluate a different picture than
+// the one that ships.
 const cfg = {
-  render: { width: 960, height: 540, fps: 30 },
+  render: {
+    width: storyboard.render?.width ?? 1920,
+    height: storyboard.render?.height ?? 1080,
+    fps: storyboard.render?.fps ?? 30,
+  },
   post: storyboard.post || { scan: 0.03 },
   safety: storyboard.safety || { maxFlash: 0.7 },
   reactive: storyboard.reactive || { beatDecay: 6, onsetDecay: 9, strongOnset: 0.35 },

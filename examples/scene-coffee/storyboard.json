@@ -1,0 +1,249 @@
+{
+  "title": "Cafe example — a mug as the cast",
+  "look": "cafe",
+  "lyricsFile": "../synthetic-demo/lyrics.lrc",
+  "shots": [
+    {
+      "id": "01_counter",
+      "start": 0,
+      "end": 12.75,
+      "palette": "still",
+      "camera": "driftUp",
+      "cameraAmount": 0.07,
+      "enter": "dissolve",
+      "scene": {
+        "type": "coffee",
+        "params": {
+          "cupX": 1180,
+          "cupY": 720,
+          "cupSize": 0.9,
+          "lyricY": 950,
+          "caption": "06:40 还没醒"
+        }
+      }
+    },
+    {
+      "id": "02_steam",
+      "start": 12.75,
+      "end": 27.28,
+      "palette": "tender",
+      "paletteFrom": "still",
+      "camera": "push",
+      "cameraAmount": 0.1,
+      "enter": "dissolve",
+      "scene": {
+        "type": "coffee",
+        "params": {
+          "cupX": 1100,
+          "cupY": 700,
+          "cupSize": 1.05,
+          "lyricY": 940
+        }
+      }
+    },
+    {
+      "id": "03_queue",
+      "start": 27.28,
+      "end": 36.0,
+      "palette": "build",
+      "paletteFrom": "tender",
+      "camera": "panR",
+      "cameraAmount": 0.17,
+      "enter": "cut",
+      "scene": {
+        "type": "coffee",
+        "params": {
+          "cupX": 620,
+          "cupY": 690,
+          "cupSize": 0.86,
+          "lyricY": 930,
+          "caption": "挤了八遍",
+          "sugarAt": 4.6,
+          "slideX": 300
+        }
+      }
+    },
+    {
+      "id": "04_sugar",
+      "start": 36.0,
+      "end": 47.63,
+      "palette": "release",
+      "paletteFrom": "build",
+      "camera": "push",
+      "cameraAmount": 0.17,
+      "enter": "cut",
+      "scene": {
+        "type": "coffee",
+        "params": {
+          "cupX": 980,
+          "cupY": 690,
+          "cupSize": 1.12,
+          "sugarAt": 2.91,
+          "lyricY": 940,
+          "stirAt": 7.2,
+          "slideX": 150
+        }
+      }
+    },
+    {
+      "id": "05a_stir",
+      "start": 47.63,
+      "end": 53.44,
+      "palette": "hot",
+      "paletteFrom": "release",
+      "camera": "pull",
+      "cameraAmount": 0.12,
+      "handheld": 1.6,
+      "enter": "cut",
+      "scene": {
+        "type": "coffee",
+        "params": {
+          "cupX": 980,
+          "cupY": 660,
+          "cupSize": 1.2,
+          "stirAt": 0.2,
+          "lyricY": 950
+        }
+      }
+    },
+    {
+      "id": "05b_laugh",
+      "start": 53.44,
+      "end": 59.25,
+      "palette": "hot",
+      "paletteFrom": "hot",
+      "camera": "push",
+      "cameraAmount": 0.1,
+      "enter": "cut",
+      "scene": {
+        "type": "typeOnly",
+        "params": {
+          "layout": "stack",
+          "size": 128,
+          "kicker": "ha ha ha"
+        }
+      }
+    },
+    {
+      "id": "06a_reports",
+      "start": 59.25,
+      "end": 70.88,
+      "palette": "intense",
+      "paletteFrom": "hot",
+      "camera": "push",
+      "cameraAmount": 0.15,
+      "enter": "glitch",
+      "scene": {
+        "type": "coffee",
+        "params": {
+          "cupX": 900,
+          "cupY": 660,
+          "cupSize": 0.92,
+          "spill": true,
+          "lyricY": 940,
+          "caption": "改了又改"
+        }
+      }
+    },
+    {
+      "id": "06b_moon",
+      "start": 70.88,
+      "end": 82.51,
+      "palette": "tender",
+      "paletteFrom": "build",
+      "camera": "driftDown",
+      "cameraAmount": 0.12,
+      "enter": "cut",
+      "scene": {
+        "type": "coffee",
+        "params": {
+          "cupX": 900,
+          "cupY": 700,
+          "cupSize": 0.9,
+          "lyricY": 940,
+          "caption": "月亮下班",
+          "stirAt": 2.4
+        }
+      }
+    },
+    {
+      "id": "07_sugar2",
+      "start": 82.51,
+      "end": 99.95,
+      "palette": "intense",
+      "paletteFrom": "build",
+      "camera": "push",
+      "cameraAmount": 0.13,
+      "handheld": 1.2,
+      "enter": "cut",
+      "scene": {
+        "type": "coffee",
+        "params": {
+          "cupX": 1000,
+          "cupY": 680,
+          "cupSize": 1.16,
+          "sugarAt": 2.9,
+          "stirAt": 11.62,
+          "lyricY": 945
+        }
+      }
+    },
+    {
+      "id": "08_cracks",
+      "start": 99.95,
+      "end": 113.3,
+      "palette": "peak",
+      "paletteFrom": "intense",
+      "camera": "driftUp",
+      "cameraAmount": 0.1,
+      "enter": "cut",
+      "scene": {
+        "type": "typeOnly",
+        "params": {
+          "layout": "column",
+          "size": 104,
+          "kicker": "chorus 2"
+        }
+      }
+    },
+    {
+      "id": "09_sweet",
+      "start": 113.3,
+      "end": 120.29,
+      "palette": "dawn",
+      "paletteFrom": "peak",
+      "camera": "pull",
+      "cameraAmount": 0.09,
+      "enter": "dissolve",
+      "scene": {
+        "type": "coffee",
+        "params": {
+          "cupX": 1140,
+          "cupY": 700,
+          "cupSize": 1.0,
+          "lyricY": 940,
+          "caption": "熬成甜香"
+        }
+      }
+    },
+    {
+      "id": "10_drained",
+      "start": 120.29,
+      "end": 127.76,
+      "palette": "dawn",
+      "camera": "driftDown",
+      "cameraAmount": 0.06,
+      "enter": "dissolve",
+      "scene": {
+        "type": "coffee",
+        "params": {
+          "cupX": 1180,
+          "cupY": 700,
+          "cupSize": 0.92,
+          "empty": true,
+          "lyricY": 930
+        }
+      }
+    }
+  ]
+}

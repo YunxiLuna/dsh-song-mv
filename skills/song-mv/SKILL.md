@@ -37,6 +37,7 @@ like and what it is about**, not from what you rendered last time.
 | `ember` | deep red-brown, low light | anger, heat, obsession, slow burn |
 | `mono` | black and white, no colour | archive, documentary, grief held still |
 | `night-shift` | dark blue neon, screens | electronic, late-night work, irony, dread |
+| `cafe` | cream walls, morning light, coffee and caramel | ordinary days told warmly, food, small comforts, warm humour |
 
 If none fit, write a new one — see `docs/looks.md`. Six entries where one is a stretch is still
 better than reusing `night-shift` because it was the default.

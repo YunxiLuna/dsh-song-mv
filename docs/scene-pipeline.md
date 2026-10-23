@@ -109,6 +109,14 @@ That line is a real result from this repo: a shot that looked fine as a still
 and did nothing on screen. Fix by giving it a camera move, a travelling subject,
 or a second event — then re-run until every shot passes.
 
+### Measure at the size you ship
+
+`check-motion` renders at the storyboard's resolution (1920×1080 by default).
+Scenes place things in absolute coordinates, so measuring a downscaled frame
+evaluates a different picture: a cup at x=1180 is off-screen at 960 wide, and a
+shot that is clearly alive gets reported as static. If you change the render
+size, keep it in the storyboard's `render` block so every tool agrees.
+
 ## The full order of operations
 
 1. `analyze` — features

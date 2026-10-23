@@ -169,6 +169,19 @@ export const LOOKS = {
     hot: ['#1a1a1a', '#262626', '#333333', '#4a4a4a', '#ffffff', '#b0b0b0', '#808080', '#b8b8b8', '#ffffff', '#707070', 0.7, 0.4],
     dawn: ['#1c1a17', '#262320', '#33302b', '#4a453d', '#f0ece4', '#a39887', '#7a7163', '#b09a78', '#d8c09a', '#6f5f45', 0.45, 0.5],
   }),
+  // ---------------------------------------------------------------------------
+  cafe: makeLook({
+    id: 'cafe',
+    label: 'Cafe',
+    when: 'morning light, cream walls, coffee and sugar. Ordinary days told warmly.',
+    scan: 0,
+    grain: 0.022,
+    vignette: { color: '#6b4a2a', alpha: 0.14 },
+    calm: ['#f3ead9', '#eaddc6', '#f7f1e3', '#cbb99c', '#2a2119', '#7a6a55', '#a89a82', '#b06a2c', '#e08a3a', '#d9b98a', 0.3, 0.9],
+    mid: ['#f6ecdb', '#efdfc4', '#fff8ea', '#c2ab8a', '#241c14', '#6f5f49', '#9c8a70', '#c2702a', '#f0952f', '#e6c79a', 0.45, 1.0],
+    hot: ['#fbf0d8', '#f7e2bd', '#fffaf0', '#d8b98a', '#1f170f', '#7d6748', '#b09a74', '#d9741f', '#ffb347', '#f0cf9f', 0.7, 1.15],
+    dawn: ['#2b2118', '#3a2c20', '#4b3929', '#6b523a', '#fdf3e2', '#c3a686', '#8d7658', '#e0913f', '#ffc46b', '#7a5c39', 0.5, 0.9],
+  }),
 };
 
 export const DEFAULT_LOOK = 'night-shift';

@@ -10,7 +10,7 @@ whole video lives in. Switching looks mid-song is possible but rare — usually 
 If `look` is missing, `night-shift` is used. Pick deliberately: a breakup ballad rendered in
 `night-shift` looks like a product demo.
 
-## The six that ship
+## The seven that ship
 
 | id | world | grain / scan | reach for it when |
 |---|---|---|---|
@@ -20,6 +20,7 @@ If `look` is missing, `night-shift` is used. Pick deliberately: a breakup ballad
 | `ember` | deep red-brown, low light, warm core | grain 0.03 | anger, heat, obsession, slow burn |
 | `mono` | black and white, no hue at all | grain 0.035 | archive, documentary, grief held still |
 | `night-shift` | dark blue neon, screens, scanlines | grain 0.025, scan 0.022 | electronic, late-night work, irony, dread |
+| `cafe` | cream walls, morning light, coffee and caramel | grain 0.022, no scan | ordinary days told warmly, food, small comforts, humour without cruelty |
 
 Each look is authored as **four** palettes — `calm`, `mid`, `hot`, `dawn` — and the eight emotional
 states are interpolated from them:
