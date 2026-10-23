@@ -65,6 +65,58 @@ frame on `travel`, and `stage` gives it an arc — `enter`, `drift`, `sink`,
 images. Beat events (rings, kicks, camera punches) come from the analysis, not
 from a hand-keyed timeline. See [docs/motion.md](docs/motion.md).
 
+## Writing a scene is a pipeline step
+
+Generic scenes can carry a shot, but they cannot carry a film. The density you
+remember from a good MV comes from something that only makes sense for that
+song. So authoring scenes is part of the pipeline, in three lanes, cheapest
+first.
+
+**1. Compose.** `designed` takes three depth planes and a list of actors per
+plane. Every actor carries its own entrance, travel and staging, so a composed
+shot moves by construction.
+
+```json
+{ "type": "designed", "params": {
+    "layer": "water", "horizon": 560,
+    "back": [{ "prop": "moon", "at": [1460, 250, 130], "enter": 0.6, "enterFrom": "above" }],
+    "mid":  [{ "prop": "boat", "at": [1090, 590, 240], "travel": [-210, 26],
+               "stage": "sink", "sinkAt": 0.82 }],
+    "near": [{ "prop": "rain", "at": [960, 540, 1], "density": 120 }] } }
+```
+
+**2. Scaffold.** When a shot needs an image no prop draws:
+
+```bash
+song-mv new-scene gutter --out scenes/gutter.mjs
+```
+
+The file renders as soon as you point a storyboard at it (`"scenes":
+["scenes/gutter.mjs"]`), and needs no imports — primitives arrive on `ctx.lib`,
+easing on `ctx.mo`, the camera on `ctx.cam`.
+
+**3. Custom.** Anything that deserves it gets written freely against the
+contract `(ctx, tv, f, P)`.
+
+### Then measure the motion instead of guessing
+
+```bash
+song-mv check-motion --storyboard storyboard.json --features data/features.json
+```
+
+Eight frames per shot, scored as pixel change plus how far the dark mass
+travelled. Shots under `1.0` are printed as `← static` and fail the command.
+
+```
+shot                     type        len   score   pixels  shift  frames
+03_sink                  field      28.6s    0.48     0.16    6.4  0/7  ← static
+```
+
+That is a real line from this repo's own film: the shot looked right as a still
+and did nothing on screen. Re-composing it with a camera push, a sinking boat
+and rain in the near plane took it to `2.16` with every frame pair changed.
+`docs/scene-pipeline.md` walks the whole loop.
+
 ## The two decisions
 
 Everything that goes wrong with a generated music video goes wrong here, so the

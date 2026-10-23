@@ -1,9 +1,9 @@
 {
   "name": "dsh-song-mv",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": false,
   "type": "module",
-  "description": "Code-rendered music videos: looks, primitives, camera moves, beat-synced lyrics.",
+  "description": "Code-rendered music videos: looks, primitives, camera moves, and a scene-authoring pipeline.",
   "main": "./lib/index.js",
   "license": "MIT",
   "bin": {

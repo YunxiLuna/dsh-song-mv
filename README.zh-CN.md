@@ -47,6 +47,52 @@ lyrics.lrc ───────────────────────
 
 运镜有 `push` `pull` `panL` `panR` `driftUp` `driftDown`。场景内部三层以不同速率平移形成视差，母题沿 `travel` 横穿画面，`stage` 给它一条弧线——`enter`、`drift`、`sink`、`return`——于是一首歌可以用一个主体讲完，而不是六张互不相关的画。踩点事件（涟漪、顿帧、镜头撞击）来自音频分析，不是手打的时间轴。细节见 `docs/motion.md`。
 
+## 写场景也是流水线的一步
+
+通用场景能撑起一个镜头，撑不起一部片子。好 MV 的密度来自只对这首歌成立的东西。
+所以写场景是流水线上的一个环节，按成本从低到高分三条路。
+
+**1. 编排。** `designed` 接收三个景深平面，每个平面一串 actor，每个 actor 自带
+入画、位移和下沉/回归，所以编排出来的镜头天生是会动的。
+
+```json
+{ "type": "designed", "params": {
+    "layer": "water", "horizon": 560,
+    "back": [{ "prop": "moon", "at": [1460, 250, 130], "enter": 0.6, "enterFrom": "above" }],
+    "mid":  [{ "prop": "boat", "at": [1090, 590, 240], "travel": [-210, 26],
+               "stage": "sink", "sinkAt": 0.82 }],
+    "near": [{ "prop": "rain", "at": [960, 540, 1], "density": 120 }] } }
+```
+
+**2. 脚手架。** 需要现有道具画不出的画面时：
+
+```bash
+song-mv new-scene gutter --out scenes/gutter.mjs
+```
+
+生成的文件立刻能渲染，只要在分镜里加 `"scenes": ["scenes/gutter.mjs"]`。文件里
+不需要 import：图元在 `ctx.lib`，缓动在 `ctx.mo`，运镜在 `ctx.cam`。
+
+**3. 手写。** 值得的镜头就照契约 `(ctx, tv, f, P)` 自由写。
+
+### 然后量一下它到底动没动
+
+```bash
+song-mv check-motion --storyboard storyboard.json --features data/features.json
+```
+
+每个镜头取八帧，按像素变化 + 暗部质心位移打分。低于 `1.0` 的会标 `← static`
+并让命令失败。
+
+```
+shot                     type        len   score   pixels  shift  frames
+03_sink                  field      28.6s    0.48     0.16    6.4  0/7  ← static
+```
+
+这是本仓库自己的片子里真实出现过的一行：那一帧当静帧看没问题，动起来什么也没发生。
+给它加上推镜、下沉的小船和近景的雨之后，分数到了 `2.16`，每一对帧都变了。
+完整流程见 `docs/scene-pipeline.md`。
+
 ## 两个决定
 
 生成的 MV 出问题，几乎都出在这两步，所以 skill 会强制先把它们写下来，再动手写 JSON。

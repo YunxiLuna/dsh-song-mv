@@ -13,6 +13,8 @@ function pulse(since, decay) { return Math.exp(-decay * Math.max(0, since)); }
 // active *look* decides what that state looks like. Swap the look and the whole
 // video changes world without touching a scene.
 import { getLook, LOOKS, DEFAULT_LOOK, LOOK_IDS } from './looks.mjs';
+import * as FX from './primitive_fx.mjs';
+import * as MO from './motion.mjs';
 import { Camera } from './motion.mjs';
 
 let ACTIVE_LOOK = getLook(DEFAULT_LOOK);
@@ -287,6 +289,12 @@ export function createEngine({ cfg, features, storyboard, lrc }) {
   const lyr = new Lyrics(typeof lrc === 'string' ? parseLrc(lrc) : lrc || []);
   const canvas = createCanvas(width, height);
   const ctx = new Ctx2D(canvas, cfg);
+  // Scenes written per song get their helpers from the context, so a scene file
+  // needs no imports and works wherever it lives.
+  // NOTE: ctx.fx is the engine's own per-frame state (see Ctx2D.begin), so the
+  // helper bags live on ctx.lib / ctx.mo.
+  ctx.lib = { ...FX, hexA };
+  ctx.mo = MO;
   // One camera per engine; scenes read parallax from it via ctx.cam.depth(k).
   const cam = new Camera(width, height);
   ctx.cam = cam;

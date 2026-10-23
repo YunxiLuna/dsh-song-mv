@@ -157,7 +157,44 @@ Staging params inside `field`:
 | `caption` / `run` | small mono text, bottom-left / top-left |
 | `still` | a held line for when no lyric is active |
 
-### 5. Preview stills, not video
+### 5. Compose or write the shots — this is part of the job
+
+Drafting the storyboard gives you boundaries and states, not images. Each shot's image is
+authored, in one of three lanes (details in `docs/scene-pipeline.md`):
+
+| lane | use it when | command / shape |
+|---|---|---|
+| **compose** | the shot is a new arrangement of props you already have | `scene.type: "designed"` with `back` / `mid` / `near` actor lists |
+| **scaffold** | the shot needs one image no prop draws | `song-mv new-scene gutter --out scenes/gutter.mjs`, then edit the body |
+| **custom** | it is the film's signature shot | write `(ctx, tv, f, P)` freely against the contract |
+
+A scaffolded or custom scene lives next to the storyboard and is loaded by name:
+
+```json
+{ "scenes": ["scenes/gutter.mjs"], "shots": [{ "type": "gutter" }] }
+```
+
+Scene files need no imports: primitives are on `ctx.lib`, easing on `ctx.mo`, the camera on
+`ctx.cam`, lyrics on `ctx.lyr`. Do not translate the canvas yourself — apply `ctx.cam.depth(k)`
+per plane.
+
+Do not skip to rendering because the stills look nice. Composition is not motion.
+
+### 6. Motion check — a hard gate
+
+```bash
+song-mv check-motion --storyboard storyboard.json --features data/features.json
+```
+
+Eight frames per shot, scored as pixel change plus travel. Anything under `1.0` prints
+`← static` and exits non-zero. **Do not render while any shot fails.** Give it a camera move, a
+subject that crosses, or a second event, then re-run. A shot that scores `← barely` (under 1.8) is
+usually one beat away from being alive — shorten the travel window, add a ring, add a light cut.
+
+Record the scores in `STORYBOARD.md` next to each shot; it is the only objective evidence that the
+film moves.
+
+### 7. Preview stills, not video
 
 ```bash
 song-mv preview --storyboard storyboard.json --features data/features.json \
@@ -172,14 +209,14 @@ Look at the images, then ask two questions:
 
 Fix text collisions and contrast here; a render is minutes, a still is a second.
 
-### 6. Render
+### 8. Render
 
 ```bash
 song-mv render --storyboard storyboard.json --features data/features.json \
                --audio song.wav --out out/mv.mp4
 ```
 
-### 7. Check the encoded file
+### 9. Check the encoded file
 
 - Extract frames from the **mp4**, not from the engine, and confirm they match the previews.
 - `song-mv qa --file out/mv.mp4` reports the luma curve and hard flashes. More than ~3 luminance
@@ -191,8 +228,12 @@ song-mv render --storyboard storyboard.json --features data/features.json \
 
 | type | what it draws | key params |
 |---|---|---|
+| `designed` | three depth planes of actors, composed per shot | `layer`, `back[]`, `mid[]`, `near[]`, `lyricStyle` |
 | `field` | layered texture + one travelling motif + the lyric | `layer`, `motif`, `motifAt`, `travel`, `stage`, `lyricStyle`, `still`, `caption` |
 | `typeOnly` | the lyric as the whole picture | `lines[]`, `layout`, `size`, `accent`, `kicker` |
+
+`designed` actors: `boat window moon lantern chair birds grain folds water rain motes ink thread
+light vignette`, each with `at`, `enter`, `enterFrom`, `travel`, `bob`, `stage`, `sinkAt`, `react`.
 
 ### Office pack (one song's props — see the warning above)
 
@@ -208,12 +249,17 @@ song-mv render --storyboard storyboard.json --features data/features.json \
 | `kitchenScene` | late-night kitchen: pot, noodles, moon |
 | `logout` | log-out dialog, cursor clicks cancel |
 
-## When nothing fits: write a scene
+## When nothing fits: scaffold a scene
 
-A scene is a function of `(ctx, tv, f, P)` — about twenty lines. Copy `field` from
-`engine/scenes.mjs`, register it in `SCENES`, and build the image from the primitives in
-`engine/primitive_fx.mjs` (grain, folds, water, rain, motes, ink, thread, light, boat, window, moon,
-lantern, chair, birds).
+```bash
+song-mv new-scene gutter --out scenes/gutter.mjs
+```
+
+The scaffold already renders: three planes, an entrance, a beat event, the lyric. Replace the
+placeholder body with the image you actually need, keep the shape, and add the file to the
+storyboard's `scenes` list. A scene is a function of `(ctx, tv, f, P)`; the primitives arrive on
+`ctx.lib` (grain, folds, water, rain, motes, ink, thread, light, boat, window, moon, lantern, chair,
+birds), easing on `ctx.mo`.
 
 `engine/motion.mjs` is what keeps a new scene alive: `ease`, `ramp`, `decay`, `bob`, `stagger`, the
 `Camera` (already applied around every scene — read `ctx.cam.depth(k)` for a parallax plane), and

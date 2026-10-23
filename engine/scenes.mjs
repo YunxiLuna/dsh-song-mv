@@ -13,6 +13,7 @@ import {
 } from './lyric_fx.mjs';
 import { mulberry32 } from './prng.mjs';
 import { ease, rampE, decay, bob } from './motion.mjs';
+import { PROPS, actors as asActors, drawActor } from './actors.mjs';
 import {
   grainField, foldCreases, waterSurface, rainField, driftMotes, inkBleed,
   threadLines, lightShaft, paperBoat, litWindow, moonDisc, lantern, emptyChair, birdLine,
@@ -1281,6 +1282,105 @@ function karaokeLine(g, text, x, y, tv, t0, { size = 92, dim, hot, accent, font 
 
 
 /**
+ * `designed` — compose a shot out of actors instead of writing code.
+ *
+ * Three depth planes, each a list of props with choreography. This is the
+ * cheap path for a bespoke shot: new imagery usually means new *arrangement*
+ * of the primitives, not new drawing code.
+ *
+ * params:
+ *   layer       base texture: paper | water | rain | snow | ink | motes | thread | window | none
+ *   horizon     water/rain: where the surface starts
+ *   back[]      far plane actors   (parallax 0.2)
+ *   mid[]       middle plane       (parallax 0.5)
+ *   near[]      near plane         (parallax 0.95)
+ *   lyricStyle / lyricY / lyricSize / caption / still / run / glitch
+ */
+export function designed(ctx, tv, f, P = { start: 0 }) {
+  const p = ctx.pal, g = ctx.g;
+  ctx.clear();
+  const s = P.start ?? 0;
+  const t0 = tv - s;
+  const dur = P.dur ?? Math.max(1, (P.end ?? s + 18) - s);
+  const cam = ctx.cam ?? { depth: () => ({ x: 0, y: 0 }) };
+
+  // base wash
+  const wash = g.createLinearGradient(0, 0, 0, 1080);
+  wash.addColorStop(0, hexA(p.panel, 1));
+  wash.addColorStop(1, hexA(p.bg, 1));
+  g.fillStyle = wash;
+  g.fillRect(-120, -120, 2160, 1320);
+
+  // base texture: reuse the same layer vocabulary as `field`
+  const layer = P.layer ?? 'none';
+  if (layer !== 'none') {
+    const mid = cam.depth(0.4);
+    g.save();
+    g.translate(mid.x, mid.y);
+    if (layer === 'paper') { grainField(g, p, tv, f, { alpha: 0.16 }); foldCreases(g, p, tv, f, { n: P.folds ?? 3, alpha: 0.42 }); }
+    else if (layer === 'water') { waterSurface(g, p, tv, f, { horizon: P.horizon ?? 640, reflectX: P.reflectX ?? 960 }); }
+    else if (layer === 'rain') { grainField(g, p, tv, f, { alpha: 0.1 }); rainField(g, p, tv, f, { density: P.density ?? 200, alpha: 0.32 }); }
+    else if (layer === 'snow') { grainField(g, p, tv, f, { alpha: 0.08 }); driftMotes(g, p, tv, f, { n: P.density ?? 170, size: 3, alpha: 0.6, rise: 40 }); }
+    else if (layer === 'ink') { grainField(g, p, tv, f, { alpha: 0.12 }); inkBleed(g, p, tv, f, { x: P.inkAt?.[0] ?? 960, y: P.inkAt?.[1] ?? 480, r: P.r ?? 300, breathe: t0 }); }
+    else if (layer === 'motes') { lightShaft(g, p, P.shaftX ?? 760, -80, 560, 1300, { alpha: 0.15 }); driftMotes(g, p, tv, f, { n: 130, alpha: 0.5, rise: 28 }); }
+    else if (layer === 'thread') { threadLines(g, p, tv, f, { n: P.threads ?? 16, t0 }); driftMotes(g, p, tv, f, { n: 40, alpha: 0.3 }); }
+    else if (layer === 'window') {
+      const [wx, wy, ww, wh] = P.pane ?? [140, 96, 1640, 880];
+      litWindow(g, p, wx, wy, ww, wh, { warm: false });
+      g.save(); g.beginPath(); g.rect(wx + 6, wy + 6, ww - 12, wh - 12); g.clip();
+      rainField(g, p, tv, f, { density: P.density ?? 180, alpha: 0.28 });
+      if (P.moon) moonDisc(g, p, wx + ww * 0.74, wy + wh * 0.28, ww * 0.045, { phase: 0.45 });
+      g.restore();
+    }
+    g.restore();
+  }
+
+  // three planes of actors
+  const planes = [
+    ['back', 0.2, P.back],
+    ['mid', 0.5, P.mid],
+    ['near', 0.95, P.near],
+  ];
+  for (const [, depth, list] of planes) {
+    for (const a of asActors(list)) {
+      drawActor(g, p, a, tv, f, { cam, depth, t0, dur });
+    }
+  }
+
+  // type
+  if (P.run) {
+    g.font = `500 20px ${MONO}`;
+    g.fillStyle = hexA(p.mute, 0.7);
+    g.textAlign = 'left'; g.textBaseline = 'middle';
+    g.fillText(P.run, 96, 132);
+  }
+  const { cur } = lyricsOf(ctx).activeAt(tv);
+  const size = P.lyricSize ?? 92;
+  const ly = P.lyricY ?? 880;
+  if (cur && tv - cur.t < 8) {
+    const style = P.lyricStyle ?? 'karaoke';
+    if (style === 'karaoke') karaokeLine(g, cur.text, 960, ly, tv, cur.t, { size, dim: hexA(p.text, 0.26), hot: p.text, accent: p.accentHot, font: WORD, rate: P.lineRate ?? 0.11 });
+    else if (style === 'plain') {
+      g.font = `700 ${size}px ${WORD}`; g.fillStyle = p.text;
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(cur.text, 960, ly);
+    } else {
+      kinetic(g, cur.text, 960, ly, tv, cur.t, { size, color: p.text, hot: p.accentHot, ghost: p.accent, step: 0.16, settle: 0.32, font: WORD });
+    }
+  } else if (P.still) {
+    g.font = `700 ${size}px ${WORD}`; g.fillStyle = hexA(p.mute, 0.55);
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(P.still, 960, ly);
+  }
+  if (P.caption) {
+    g.font = `500 22px ${MONO}`; g.fillStyle = hexA(p.sub, 0.8);
+    g.textAlign = 'left'; g.textBaseline = 'middle';
+    g.fillText(P.caption, 96, 1006);
+  }
+  if (P.glitch && f.onsetPulse > 0.55) glitchSlices(g, f, tv);
+}
+
+/**
  * Scene `typeOnly` — the lyrics are the picture. No props at all.
  *
  * Use it when the song's best image is a sentence: the chorus, the last line,
@@ -1374,6 +1474,7 @@ export function typeOnly(ctx, tv, f, P = { 'start': 0.0 }) {
 
 
 export const SCENES = {
+  designed,
   // generic: work with any song, driven entirely by params
   field, typeOnly,
   // story-specific: drawn for one song about an office at 2 AM

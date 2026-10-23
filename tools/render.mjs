@@ -10,6 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createEngine } from '../engine/core.mjs';
 import { createFrameSink, requireFfmpeg, probeDuration } from './lib/ffmpeg.mjs';
+import { loadUserScenes } from './lib/scenes.mjs';
 
 function parseArgs(argv) {
   const out = { _: [] };
@@ -64,6 +65,9 @@ if (storyboard.lyricsFile) {
   lrcPath = fs.existsSync(rel) ? rel : (fs.existsSync(abs) ? abs : []);
   if (!lrcPath.length) console.warn(`warning: lyricsFile not found (${storyboard.lyricsFile}) — lyrics will be blank`);
 }
+
+// scenes named by the storyboard are registered before the engine is built
+await loadUserScenes(storyboard, args.storyboard);
 
 const engine = createEngine({ cfg, features, storyboard, lrc: lrcPath });
 
