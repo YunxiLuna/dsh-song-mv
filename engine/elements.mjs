@@ -25,7 +25,20 @@ import {
 } from './primitive_fx.mjs';
 import { hexA } from './story_fx.mjs';
 
-const ROLES = ['bg', 'panel', 'raised', 'line', 'text', 'sub', 'mute', 'accent', 'accentHot', 'accentDim'];
+// `shadow` is the one role whose meaning is absolute rather than relative to the
+// world: it is always darker than the ground, in a light world and a dark one.
+
+function shade(hex, k) {
+  const n = parseInt(String(hex).replace('#', ''), 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const f = (v) => {
+    const out = k < 0 ? v * (1 + k) : v + (255 - v) * k;
+    return Math.max(0, Math.min(255, Math.round(out)));
+  };
+  return `#${[f(r), f(g), f(b)].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+}
+
+const ROLES = ['bg', 'panel', 'raised', 'line', 'text', 'sub', 'mute', 'accent', 'accentHot', 'accentDim', 'shadow'];
 
 const EASE = {
   linear: (k) => k,
@@ -36,7 +49,7 @@ const EASE = {
 
 const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
 
-export const ELEMENT_KINDS = ['rect', 'ellipse', 'line', 'poly', 'arc', 'text', 'dots', 'band', 'blob', 'grid'];
+export const ELEMENT_KINDS = ['rect', 'ellipse', 'line', 'poly', 'arc', 'text', 'dots', 'band', 'blob', 'grid', 'figure'];
 
 // A keyframe track is how an element *acts* rather than jitters:
 //
@@ -88,6 +101,7 @@ function keyAt(el, localT) {
 function paint(p, role, fallback) {
   const key = role ?? fallback;
   if (!key || key === 'none') return null;
+  if (key === 'shadow') return shade(p.bg, -0.55);
   if (ROLES.includes(key)) return p[key];
   return hexA(key, 1); // a literal colour is allowed; it just loses look-awareness
 }
@@ -352,9 +366,99 @@ function drawGrid(g, p, el, fr) {
   }
 }
 
+function drawFigure(g, p, el, fr, tv) {
+  // A body, not a stick: head, shoulders, torso, two arms, two legs. Poses are
+  // a handful of angles, so a person can stand, walk, sit, lean or reach, and
+  // `keys` can move them across a shot.
+  const pose = el.pose ?? 'stand';
+  const H = Math.abs(fr.h) || 240;
+  const W = Math.abs(fr.w) || H * 0.42;
+  const fill = paint(p, el.fill, 'mute');
+  const line = paint(p, el.stroke, null);
+  const t = tv ?? 0;
+
+  const headR = H * 0.085;
+  const shoulderY = -H * 0.30;
+  const hipY = H * 0.06;
+  const lean = el.lean ?? 0;
+
+  g.save();
+  g.rotate(lean);
+
+  // legs
+  const legSwing = pose === 'walk' ? Math.sin(t * (el.stride ?? 3.1)) * H * 0.13 : 0;
+  const spread = pose === 'sit' ? H * 0.02 : W * 0.16;
+  g.strokeStyle = fill;
+  g.lineCap = 'round';
+
+  if (pose === 'sit') {
+    g.lineWidth = H * 0.075;
+    g.beginPath();
+    g.moveTo(-spread, hipY); g.lineTo(-spread * 0.6, hipY + H * 0.26);
+    g.lineTo(-spread * 0.4, hipY + H * 0.40);
+    g.moveTo(spread, hipY); g.lineTo(spread * 0.6, hipY + H * 0.26);
+    g.lineTo(spread * 0.4, hipY + H * 0.40);
+    g.stroke();
+  } else {
+    g.lineWidth = H * 0.085;
+    g.beginPath();
+    g.moveTo(-spread, hipY); g.lineTo(-spread - legSwing * 0.5, H * 0.5);
+    g.moveTo(spread, hipY); g.lineTo(spread + legSwing * 0.5, H * 0.5);
+    g.stroke();
+  }
+
+  // torso
+  g.lineWidth = H * 0.16;
+  g.beginPath();
+  g.moveTo(0, shoulderY + H * 0.02);
+  g.lineTo(0, hipY);
+  g.stroke();
+
+  // arms
+  const armSwing = pose === 'walk' ? -legSwing * 0.8 : 0;
+  g.lineWidth = H * 0.055;
+  g.beginPath();
+  if (pose === 'reach') {
+    g.moveTo(-W * 0.06, shoulderY + H * 0.05);
+    g.lineTo(W * 0.30, shoulderY - H * 0.05);
+    g.moveTo(W * 0.06, shoulderY + H * 0.05);
+    g.lineTo(W * 0.26, shoulderY + H * 0.12);
+  } else if (pose === 'sit') {
+    g.moveTo(-W * 0.06, shoulderY + H * 0.05);
+    g.lineTo(-W * 0.14, hipY + H * 0.02);
+    g.moveTo(W * 0.06, shoulderY + H * 0.05);
+    g.lineTo(W * 0.18, hipY - H * 0.02);
+  } else {
+    g.moveTo(-W * 0.05, shoulderY + H * 0.05);
+    g.lineTo(-W * 0.09, hipY - H * 0.04 + armSwing);
+    g.moveTo(W * 0.05, shoulderY + H * 0.05);
+    g.lineTo(W * 0.09, hipY - H * 0.04 - armSwing);
+  }
+  g.stroke();
+
+  // head + shoulders
+  g.fillStyle = fill;
+  g.beginPath();
+  g.ellipse(0, shoulderY - headR * 1.15, headR, headR * 1.06, 0, 0, Math.PI * 2);
+  g.fill();
+  g.beginPath();
+  g.ellipse(0, shoulderY + H * 0.02, W * 0.13, H * 0.035, 0, 0, Math.PI * 2);
+  g.fill();
+
+  if (line) {
+    g.strokeStyle = line;
+    g.lineWidth = 2;
+    g.beginPath();
+    g.ellipse(0, shoulderY - headR * 1.15, headR, headR * 1.06, 0, 0, Math.PI * 2);
+    g.stroke();
+  }
+  g.restore();
+}
+
 const DRAW = {
   rect: drawRect, ellipse: drawEllipse, line: drawLine, poly: drawPoly,
   arc: drawArc, text: drawText, dots: drawDots, band: drawBand, blob: drawBlob, grid: drawGrid,
+  figure: drawFigure,
 };
 
 // ---------------------------------------------------------------------------
@@ -502,6 +606,26 @@ export function drawElements(g, p, elements, tv, f, opts = {}) {
     // sits at `at` and the enter/travel offsets apply on top
     const baseX = mo.keyX != null ? mo.keyX * W : fr.x + (mo.offX + mo.travX) * W;
     const baseY = mo.keyY != null ? mo.keyY * H : fr.y + (mo.offY + mo.travY) * H + mo.bob + mo.sink * 60;
+
+    // A prop without a shadow floats. `shadow: true` (or `shadow: 0.3`) drops a
+    // soft ellipse under the box; depth decides how far and how soft.
+    const shadow = el.shadow === undefined ? false : el.shadow;
+    if (shadow && ['rect', 'ellipse', 'figure', 'text', 'poly'].includes(kind)) {
+      const k = typeof shadow === 'number' ? shadow : 0.22;
+      const out = 0.35 + depth * 0.9;
+      const sw = Math.abs(fr.h || fr.w) * (el.shadowW ?? 0.78);
+      const sh = sw * 0.16;
+      g.save();
+      const grd = g.createRadialGradient(baseX + par.x, baseY + par.y + Math.abs(fr.h) * 0.48 + 6, 0,
+                                         baseX + par.x, baseY + par.y + Math.abs(fr.h) * 0.48 + 6, sw * 0.62);
+      grd.addColorStop(0, hexA(p.line, k * out));
+      grd.addColorStop(1, hexA(p.line, 0));
+      g.fillStyle = grd;
+      g.beginPath();
+      g.ellipse(baseX + par.x, baseY + par.y + Math.abs(fr.h) * 0.48 + 6, sw * 0.55, sh, 0, 0, Math.PI * 2);
+      g.fill();
+      g.restore();
+    }
 
     g.save();
     g.globalAlpha = clamp01((el.alpha ?? 1) * mo.alpha);

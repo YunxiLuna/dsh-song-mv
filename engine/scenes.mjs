@@ -1379,11 +1379,59 @@ export function designed(ctx, tv, f, P = { start: 0 }) {
     }
   }
 
+  // Inserts: a cut to a detail inside an otherwise long shot. The storyboard
+  // names a window and a focus; the frame punches in on it, which is how a
+  // 20-second shot stops reading as one static image.
+  let insertK = 0;
+  let focus = [0.5, 0.5];
+  if (Array.isArray(P.inserts)) {
+    for (const ins of P.inserts) {
+      const a = ins.at ?? 0;
+      const d = ins.dur ?? 1.4;
+      if (t0 >= a && t0 <= a + d) {
+        const edge = Math.min(t0 - a, a + d - t0);
+        insertK = Math.min(1, edge / 0.22);
+        focus = ins.focus ?? [0.5, 0.5];
+      }
+    }
+  }
+  const zoom = insertK > 0 ? 1 + (P.insertZoom ?? 1.7) * insertK : 1;
+
+  g.save();
+  if (zoom !== 1) {
+    const fx = focus[0] * 1920;
+    const fy = focus[1] * 1080;
+    g.translate(fx, fy);
+    g.scale(zoom, zoom);
+    g.translate(-fx, -fy);
+  }
+
   // A shot can also be written as JSON: shapes, strokes, type, particles, each
   // with a depth and a motion. This is the lane an agent uses for imagery the
   // prop library has never heard of.
   if (P.elements) {
     drawElements(g, p, P.elements, tv, f, { width: 1920, height: 1080, start: s, cam });
+  }
+  g.restore();
+
+  // One light source, applied over the whole frame: the cheapest way to make a
+  // pile of shapes read as a place with air in it.
+  const light = P.light;
+  if (light) {
+    const lx = (light.at?.[0] ?? 0.5) * 1920;
+    const ly = (light.at?.[1] ?? 0.4) * 1080;
+    const rad = (light.r ?? 0.75) * 1920;
+    const strength = (light.strength ?? 0.3) * (1 + (f.barPulse ?? 0) * 0.25);
+    const col = light.role && p[light.role] ? p[light.role] : (light.color ?? p.accentHot);
+    const grd = g.createRadialGradient(lx, ly, 0, lx, ly, rad);
+    grd.addColorStop(0, hexA(col, Math.min(0.85, strength)));
+    grd.addColorStop(0.45, hexA(col, Math.min(0.5, strength * 0.45)));
+    grd.addColorStop(1, hexA(col, 0));
+    g.save();
+    g.globalCompositeOperation = light.blend ?? 'lighter';
+    g.fillStyle = grd;
+    g.fillRect(0, 0, 1920, 1080);
+    g.restore();
   }
 
   eventsEnd(g, p, P.events, t0, 1920, 1080);

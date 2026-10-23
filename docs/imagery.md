@@ -120,6 +120,32 @@ Rules that keep a frame readable:
 `track` is letter-spacing in px (signage needs it), `pad` `[x, y]` is the plate's
 padding, `leading` overrides line height.
 
+## Frame check
+
+song-mv check-frame --storyboard <file> --features <file> renders three frames
+per shot and measures the picture, not the motion:
+
+| column | what it means | want |
+|---|---|---|
+| subj | how much of the frame the props occupy (union of non-ground elements) | 15-55% |
+| 	ones | how many distinct colour masses hold real area | 3-18 |
+| p10 | the tenth percentile of luminance | > 30 |
+| 
+ange | p90 - p10: the tonal range | > 40 |
+| grid | which of the nine 3x3 cells contain something | >= 6 |
+
+Every failure names the field to change. A frame can pass check-imagery
+(composed) and still fail check-frame (empty or muddy) — they answer different
+questions, so run both.
+
+Two lessons the thresholds encode:
+
+- **A prop under about a fifth of the frame reads as a sticker on a wall.**
+  Clock faces, cards and cups want 0.25-0.4 of the width.
+- **Flat art passes or fails on tonal range, not on edges.** A cream world needs
+  something dark in it — a phone face down, a laptop edge, a foreground chair —
+  or it reads as an empty page.
+
 ## The ten verbs
 
 | kind | reads as | main fields |
