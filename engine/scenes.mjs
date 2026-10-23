@@ -9,6 +9,7 @@ import {
   albumWindow, logOutDialog, cursorTo,
 } from './story_fx.mjs';
 import { drawElements, drawElementsBand, eventsBegin, eventsEnd } from './elements.mjs';
+import { keyLightWash, lightVector } from './materials.mjs';
 import {
   slam, bounce, wall, sliced, onPath, decode, burst, karaoke,
 } from './lyric_fx.mjs';
@@ -1479,6 +1480,7 @@ export function designed(ctx, tv, f, P = { start: 0 }) {
   if (P.elements) {
     const focusD = focusAt(t0, P);
     const maxBlur = P.dof ?? 10;
+    const key = lightVector(P.keyLight);
     // Defocus is a property of an element's depth, not of a fixed slab: group the
     // layer into blur buckets, then composite the buckets back in depth order.
     // Sharp elements are drawn straight onto the frame so text stays crisp.
@@ -1495,26 +1497,30 @@ export function designed(ctx, tv, f, P = { start: 0 }) {
       return mean(a[1]) - mean(b2[1]);
     });
     if (ordered.length === 1 && ordered[0][0] === 0) {
-      drawElementsBand(g, p, P.elements, tv, f, { width: 1920, height: 1080, start: s, cam, order: 'depth' });
+      drawElementsBand(g, p, P.elements, tv, f, { width: 1920, height: 1080, start: s, cam, order: 'depth', key });
     } else {
       const { layers, small } = bandSurfaces();
       let li = 0;
       for (const [blurPx, list] of ordered) {
         if (blurPx === 0) {
-          drawElementsBand(g, p, list, tv, f, { width: 1920, height: 1080, start: s, cam, order: 'depth' });
+          drawElementsBand(g, p, list, tv, f, { width: 1920, height: 1080, start: s, cam, order: 'depth', key });
           continue;
         }
         const slot = layers[li % layers.length];
         li++;
         slot.g.setTransform(1, 0, 0, 1, 0, 0);
         slot.g.clearRect(0, 0, BAND_W, BAND_H);
-        drawElementsBand(slot.g, p, list, tv, f, { width: BAND_W, height: BAND_H, start: s, cam, order: 'depth' });
+        drawElementsBand(slot.g, p, list, tv, f, { width: BAND_W, height: BAND_H, start: s, cam, order: 'depth', key });
         compositeBlurred(g, slot.c, blurPx);
       }
       void small;
     }
   }
   g.restore();
+
+  // Key light: one direction for the whole frame. Element shading already used
+  // the same vector, so highlights and shadows agree.
+  keyLightWash(g, p, lightVector(P.keyLight), 1920, 1080);
 
   // One light source, applied over the whole frame: the cheapest way to make a
   // pile of shapes read as a place with air in it.

@@ -120,6 +120,53 @@ Rules that keep a frame readable:
 `track` is letter-spacing in px (signage needs it), `pad` `[x, y]` is the plate's
 padding, `leading` overrides line height.
 
+## Materials
+
+A fill gives an element a colour; a material gives it a **substance**. The
+material is a texture pass drawn inside the element's own transform, so a
+rotated card gets its fibres rotated too.
+
+```json
+{ "kind": "rect", "at": [0.5, 0.4], "size": [0.4, 0.3],
+  "fill": "raised", "material": "paper", "materialAmount": 0.6 }
+```
+
+| material | reads as | used for |
+|---|---|---|
+| `paper` | tooth + fibres | cards, letters, walls, screenshots |
+| `grain` | fine speckle, no fibres | walls, skin, distant surfaces |
+| `metal` | banded sheen + streaks | monitor bodies, appliances, rails |
+| `glass` | one specular streak + a dark edge | cups, windows, phone screens |
+| `water` | drifting ripple lines | surfaces, reflections, tears |
+| `fabric` | crosshatch weave | duvets, coats, curtains |
+| `wood` | long curved grain | tables, floors, doors |
+
+Two lessons are baked into the implementation:
+
+- **Materials must darken, not brighten.** On a pale palette, painting white
+  (or a `lighter` pass over the whole shape) turned every prop into a white
+  slab. The body is shaped by a `multiply` gradient toward the far side; the
+  highlight is a narrow band.
+- **The tonal ladder is what makes a prop visible**: wall `bg` (lightest) →
+  object `raised` → recess `panel` → edge `line`. If a prop and the wall share
+  a role, no amount of texture will separate them.
+
+## Key light
+
+One direction per shot, applied to every element *and* the frame:
+
+```json
+"keyLight": { "from": [0.16, 0.1], "strength": 0.55 }
+```
+
+`from` is where the light comes from (frame fractions). Each element gets a
+gradient along that vector, bright on the lit side and falling into `bg` on the
+far side; the frame then gets the same gradient as a `multiply` wash, so the set
+darkens away from the source. `shadeAmount` per element dials it up or down.
+
+`from` in the top-left with `strength` 0.5-0.6 is morning; bottom-right at 0.35
+is a desk lamp; 0.2 with the `dawn` palette is a streetlight through a window.
+
 ## Depth, focus and inserts
 
 A pile of shapes becomes a frame when three things are true: there is air behind

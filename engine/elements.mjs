@@ -19,6 +19,7 @@
 // shot survives a change of render size. `px` swaps `at`/`size` for pixels when
 // exact type sizes matter (text always uses pixels for `size`).
 
+import { MATERIALS, drawMaterial, shadeElement } from './materials.mjs';
 import {
   grainField, foldCreases, waterSurface, rainField, driftMotes,
   inkBleed, threadLines, lightShaft, softenVignette,
@@ -634,6 +635,10 @@ export function drawElements(g, p, elements, tv, f, opts = {}) {
     if (mo.scale !== 1) g.scale(mo.scale, mo.scale);
     if (el.blend) g.globalCompositeOperation = el.blend;
     fn(g, p, el, fr, tv, f);
+    // texture and light sit on top of the fill but inside the same transform,
+    // so a rotated card gets its fibres rotated with it
+    if (el.material && el.material !== 'none') drawMaterial(g, p, el, fr, tv);
+    if (opts.key) shadeElement(g, p, el, fr, opts.key);
     g.restore();
   }
 }
@@ -659,6 +664,9 @@ export function validateElements(elements, where = 'elements') {
     }
     if (el.kind === 'text' && typeof el.text !== 'string') {
       errors.push(`${at}.text: expected a string`);
+    }
+    if (el.material && !MATERIALS.includes(el.material)) {
+      errors.push(`${at}.material: "${el.material}" is not one of ${MATERIALS.join(', ')}`);
     }
     if (el.kind === 'poly' && (!Array.isArray(el.points) || el.points.length < 2)) {
       errors.push(`${at}.points: expected at least two [x, y] pairs`);
