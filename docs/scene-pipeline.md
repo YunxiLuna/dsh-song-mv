@@ -9,9 +9,14 @@ So scene authoring is a pipeline step with three lanes, ordered by cost:
 
 | lane | when | how | cost |
 |---|---|---|---|
-| **compose** | the shot is a new *arrangement* of things you already have | `designed` + actors in the storyboard | no code |
-| **scaffold** | the shot needs one thing no prop does | `song-mv new-scene <name>`, fill the body | ~40 lines |
+| **elements** | the default: any shot you can describe with shapes, strokes, type and particles | `designed` + `elements` JSON ([docs/imagery.md](imagery.md)) | no code |
+| **compose** | the shot is an arrangement of props that already exist | `designed` + actors in the storyboard | no code |
+| **scaffold** | the shot needs a drawing the verbs cannot express | `song-mv new-scene <name>`, fill the body | ~40 lines |
 | **custom** | the shot is the film's signature image | write it freely against the contract | as long as it needs |
+
+The first lane is the one that scales, because it does not grow a catalogue: ten
+verbs compose into any picture an agent can name, and the picture for a song
+nobody has heard yet is just another JSON object.
 
 All three end in the same place: a scene named by the storyboard, measured by
 the motion check, rendered by the same engine.

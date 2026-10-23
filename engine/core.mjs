@@ -3,6 +3,7 @@
 import { createCanvas } from 'canvas';
 import fs from 'node:fs';
 import { SCENES, SCENE_META } from './scenes.mjs';
+import { validateElements } from './elements.mjs';
 import { hexA } from './story_fx.mjs';
 
 function clamp(x, lo = 0, hi = 1) { return Math.max(lo, Math.min(hi, x)); }
@@ -359,6 +360,13 @@ export function shotsFromStoryboard(storyboard) {
     const type = s.scene?.type;
     if (!SCENES[type]) throw new Error(`unknown scene type "${type}" in shot ${s.id ?? i}; known: ${Object.keys(SCENES).join(', ')}`);
     const params = { start: s.start, end: s.end, dur: s.end - s.start, ...(s.scene.params || {}) };
+
+    // Fail at build time with the shot's name, not with a blank frame at render
+    // time: an agent writing JSON needs to be told which field is wrong.
+    if (params.elements) {
+      const errs = validateElements(params.elements, `${s.id ?? i}.scene.params.elements`);
+      if (errs.length) throw new Error(`shot ${s.id ?? i}:\n  ${errs.join('\n  ')}`);
+    }
     shots.push({
       id: s.id || `shot${String(i + 1).padStart(2, '0')}`,
       type,

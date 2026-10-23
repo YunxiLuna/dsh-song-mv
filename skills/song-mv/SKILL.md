@@ -147,7 +147,7 @@ Shot fields:
 | field | meaning |
 |---|---|
 | `start` / `end` | seconds; shots tile the song in order |
-| `scene.type` | `field` / `typeOnly`, or a scene you wrote, or an office-pack scene |
+| `scene.type` | **`designed` with `elements`** (default — see [docs/imagery.md](../../docs/imagery.md)), or `field` / `typeOnly`, a scene you wrote, or an office-pack scene |
 | `scene.params` | content: texture, motif, text, layout, and the staging params below |
 | `palette` | emotional state for the shot; the look turns it into colours |
 | `camera` | `push` `pull` `panL` `panR` `driftUp` `driftDown` `none` |
@@ -157,6 +157,24 @@ Shot fields:
 | `handheld` | 0–3 px of shake; 0 for a locked-off card |
 | `enter` | `cut` / `dissolve` / `glitch` / `wipe` |
 | `loud` | beat punch on downbeats |
+
+Inside `designed`, the imagery is data (`docs/imagery.md` has the full table):
+
+```json
+{ "type": "designed",
+  "params": {
+    "layer": "rain",
+    "lyricStyle": "karaoke",
+    "elements": [
+      { "kind": "band", "at": [0.5, 0.72], "size": [1.3, 0.5], "fill": "panel", "alpha": 0.5, "depth": 0.2 },
+      { "kind": "rect", "at": [0.5, 0.55], "size": [0.62, 0.5], "fill": "raised", "stroke": "line", "lw": 3, "depth": 0.6 },
+      { "kind": "dots", "at": [0.5, 0.4], "size": [1.2, 0.8], "n": 60, "dot": 3, "mode": "fall", "depth": 0.95 }
+    ] } }
+```
+
+Ten verbs — `rect ellipse line poly arc text dots band blob grid` — each with a colour **role**, a
+`depth`, `motion` and `react`. That is the lane for imagery the prop library has never heard of; it is
+JSON, not JavaScript, so it costs one object per shot.
 
 Staging params inside `field`:
 
@@ -180,6 +198,7 @@ authored, in one of three lanes (details in `docs/scene-pipeline.md`):
 
 | lane | use it when | command / shape |
 |---|---|---|
+| **elements** | default: anything you can say with shapes, strokes, type, particles | `scene.type: "designed"` + `elements: [...]` — see `docs/imagery.md` |
 | **compose** | the shot is a new arrangement of props you already have | `scene.type: "designed"` with `back` / `mid` / `near` actor lists |
 | **scaffold** | the shot needs one image no prop draws | `song-mv new-scene gutter --out scenes/gutter.mjs`, then edit the body |
 | **custom** | it is the film's signature shot | write `(ctx, tv, f, P)` freely against the contract |
@@ -196,11 +215,16 @@ per plane.
 
 Do not skip to rendering because the stills look nice. Composition is not motion.
 
-### 7. Motion check — a hard gate
+### 7. Two hard gates
 
 ```bash
-song-mv check-motion --storyboard storyboard.json --features data/features.json
+song-mv check-imagery --storyboard storyboard.json     # is the frame composed?
+song-mv check-motion  --storyboard storyboard.json --features data/features.json
 ```
+
+`check-imagery` refuses a shot with fewer than 8 elements, fewer than three depth planes, no
+horizon, or fewer than two motion events. It is the density rule from `docs/imagery.md`, executed:
+a frame that passes it is a picture rather than a diagram.
 
 Eight frames per shot, scored as pixel change plus travel. Anything under `1.0` prints
 `← static` and exits non-zero. **Do not render while any shot fails.** Give it a camera move, a

@@ -8,6 +8,7 @@ import {
   cityTowers, eraserCursor, kitchen, floorplanErase, blackHole,
   albumWindow, logOutDialog, cursorTo,
 } from './story_fx.mjs';
+import { drawElements } from './elements.mjs';
 import {
   slam, bounce, wall, sliced, onPath, decode, burst, karaoke,
 } from './lyric_fx.mjs';
@@ -1372,6 +1373,13 @@ export function designed(ctx, tv, f, P = { start: 0 }) {
     for (const a of asActors(list)) {
       drawActor(g, p, a, tv, f, { cam, depth, t0, dur });
     }
+  }
+
+  // A shot can also be written as JSON: shapes, strokes, type, particles, each
+  // with a depth and a motion. This is the lane an agent uses for imagery the
+  // prop library has never heard of.
+  if (P.elements) {
+    drawElements(g, p, P.elements, tv, f, { width: 1920, height: 1080, start: s, cam });
   }
 
   // type
