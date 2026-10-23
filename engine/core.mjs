@@ -13,6 +13,7 @@ function pulse(since, decay) { return Math.exp(-decay * Math.max(0, since)); }
 // active *look* decides what that state looks like. Swap the look and the whole
 // video changes world without touching a scene.
 import { getLook, LOOKS, DEFAULT_LOOK, LOOK_IDS } from './looks.mjs';
+import { Camera } from './motion.mjs';
 
 let ACTIVE_LOOK = getLook(DEFAULT_LOOK);
 
@@ -260,7 +261,7 @@ export function shotsFromStoryboard(storyboard) {
     const s = list[i];
     const type = s.scene?.type;
     if (!SCENES[type]) throw new Error(`unknown scene type "${type}" in shot ${s.id ?? i}; known: ${Object.keys(SCENES).join(', ')}`);
-    const params = { start: s.start, ...(s.scene.params || {}) };
+    const params = { start: s.start, end: s.end, dur: s.end - s.start, ...(s.scene.params || {}) };
     shots.push({
       id: s.id || `shot${String(i + 1).padStart(2, '0')}`,
       type,
@@ -286,6 +287,9 @@ export function createEngine({ cfg, features, storyboard, lrc }) {
   const lyr = new Lyrics(typeof lrc === 'string' ? parseLrc(lrc) : lrc || []);
   const canvas = createCanvas(width, height);
   const ctx = new Ctx2D(canvas, cfg);
+  // One camera per engine; scenes read parallax from it via ctx.cam.depth(k).
+  const cam = new Camera(width, height);
+  ctx.cam = cam;
   const post = new Post2D(canvas, cfg);
   // Scenes read shared state off the context; nothing is module-global.
   ctx.lyr = lyr;
@@ -320,16 +324,11 @@ export function createEngine({ cfg, features, storyboard, lrc }) {
     ctx.begin(t, f, t, {});
     ctx.clear();
 
-    if (active.loud) {
-      const g = ctx.g;
-      const sc = punchScale(f, 0.035);
-      g.save();
-      g.translate(width / 2, height / 2); g.scale(sc, sc); g.translate(-width / 2, -height / 2);
-      active.render(ctx, t, f);
-      g.restore();
-    } else {
-      active.render(ctx, t, f);
-    }
+    // Every shot goes through the camera: push/pull/pan/drift plus a beat
+    // punch on loud shots. Scenes never move the frame themselves.
+    cam.begin(ctx.g, active, t, f);
+    active.render(ctx, t, f);
+    cam.end(ctx.g);
 
     // Shot entry: dissolve from black / glitch tear
     if (active.enter === 'dissolve' && sinceIn < 0.45) {

@@ -10,6 +10,9 @@
       "end": 10.5,
       "palette": "still",
       "enter": "dissolve",
+      "camera": "push",
+      "cameraAmount": 0.05,
+      "handheld": 0.8,
       "scene": {
         "type": "field",
         "params": {
@@ -17,6 +20,8 @@
           "folds": 2,
           "motif": "window",
           "motifAt": [1180, 470, 190],
+          "travel": [40, 0],
+          "lyricStyle": "karaoke",
           "lyricY": 900,
           "caption": "6 shots, 5 layers, 1 look"
         }
@@ -29,13 +34,17 @@
       "palette": "tender",
       "paletteFrom": "still",
       "enter": "dissolve",
+      "camera": "panR",
+      "cameraAmount": 0.05,
       "scene": {
         "type": "field",
         "params": {
           "layer": "paper",
           "folds": 3,
           "motif": "boat",
-          "motifAt": [960, 520, 240],
+          "motifAt": [820, 520, 240],
+          "travel": [260, -16],
+          "stage": "enter",
           "lyricY": 900
         }
       }
@@ -47,6 +56,9 @@
       "palette": "intense",
       "paletteFrom": "tender",
       "enter": "glitch",
+      "camera": "push",
+      "cameraAmount": 0.1,
+      "handheld": 2.2,
       "loud": true,
       "scene": {
         "type": "field",
@@ -55,6 +67,7 @@
           "density": 240,
           "motif": "lantern",
           "motifAt": [1420, 430, 130],
+          "lyricStyle": "kinetic",
           "lyricY": 890
         }
       }
@@ -66,6 +79,8 @@
       "palette": "release",
       "paletteFrom": "intense",
       "enter": "cut",
+      "camera": "panL",
+      "cameraAmount": 0.04,
       "scene": {
         "type": "typeOnly",
         "params": {
@@ -82,14 +97,19 @@
       "palette": "build",
       "paletteFrom": "release",
       "enter": "dissolve",
+      "camera": "driftDown",
+      "cameraAmount": 0.05,
       "scene": {
         "type": "field",
         "params": {
           "layer": "water",
           "horizon": 640,
           "motif": "boat",
-          "motifAt": [980, 600, 180],
-          "motifX": 980,
+          "motifAt": [700, 600, 200],
+          "travel": [520, -10],
+          "stage": "sink",
+          "sinkAt": 0.62,
+          "lyricStyle": "karaoke",
           "lyricY": 880,
           "caption": "the layer takes the look's colour"
         }
@@ -102,6 +122,9 @@
       "palette": "peak",
       "paletteFrom": "build",
       "enter": "glitch",
+      "camera": "push",
+      "cameraAmount": 0.12,
+      "handheld": 1.6,
       "loud": true,
       "scene": {
         "type": "field",
@@ -121,12 +144,18 @@
       "palette": "dawn",
       "paletteFrom": "peak",
       "enter": "dissolve",
+      "camera": "pull",
+      "cameraAmount": 0.06,
+      "handheld": 0.6,
       "scene": {
         "type": "field",
         "params": {
           "layer": "motes",
           "motif": "boat",
-          "motifAt": [960, 620, 200],
+          "motifAt": [960, 620, 190],
+          "travel": [90, -24],
+          "stage": "return",
+          "lyricStyle": "karaoke",
           "lyricY": 900,
           "still": "Generic field demo"
         }

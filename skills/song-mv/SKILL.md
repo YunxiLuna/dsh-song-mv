@@ -13,13 +13,12 @@ There is no timeline editor and no stock footage.
   service — they are licensed text and must not be committed to a repo.
 - `ffmpeg` on PATH. Check with `ffmpeg -version`; if missing, tell the user how to install it.
 
-## The gate: decide two things before writing any JSON
+## The gate: decide three things before writing any JSON
 
-Most bad results from this tool come from skipping this step — opening the storyboard, reusing the
-scenes from the example, and filling them with the new song's words. That produces a video where the
-imagery belongs to a different song. Work in this order instead.
+Almost every bad MV from this tool comes from skipping this step. The two failure modes are
+identical in shape: reusing the previous song's props, or making a beautiful still that never moves.
 
-Write both answers into `STORYBOARD.md` and show them to the user before rendering anything.
+Write the three answers into `STORYBOARD.md` and show them to the user before rendering.
 
 ### Decision 1 — the look (colour world)
 
@@ -35,26 +34,63 @@ like and what it is about**, not from what you rendered last time.
 | `mono` | black and white, no colour | archive, documentary, grief held still |
 | `night-shift` | dark blue neon, screens | electronic, late-night work, irony, dread |
 
-If none of them fit, write a new one — see `docs/looks.md`. Six entries where one is a stretch is
-still better than reusing `night-shift` because it was the default.
+If none fit, write a new one — see `docs/looks.md`. Six entries where one is a stretch is still
+better than reusing `night-shift` because it was the default.
 
-### Decision 2 — the imagery list
+### Decision 2 — the cast and its arc
 
-Before scene types, list **5–8 concrete things the viewer will see**, each one sentence, each one
-traceable to a lyric line or to what the user told you about the song.
+Pick **one or two subjects** that can carry the whole song, and give each an arc across shots. A
+subject is an object or a place, not a feeling: a paper boat, a window, a chair, a lantern.
+
+```
+boat:  enters left (verse 1) → travels the length of the frame (verse 2)
+       → slows and sinks on the pre-chorus → comes back small in the last chorus
+```
+
+Sinking and returning are already supported by `stage` (`enter` / `drift` / `sink` / `return`), so an
+arc costs one string per shot. Do not invent a new subject per shot — that reads as a stock-footage
+montage, not a film.
+
+### Decision 3 — the motion plan
+
+**A shot that does not move is a failed shot.** For every shot write one line with all four parts:
+
+```
+[shot] camera: push 0.09  |  what moves: boat crosses 430px, foreground grains parallax
+       | what happens: boat sinks at 0:52, ring pulse on the downbeat
+       | lyric: karaoke, line at y=900
+```
+
+The four slots, and where they come from:
+
+| slot | options | notes |
+|---|---|---|
+| **camera** | `push` `pull` `panL` `panR` `driftUp` `driftDown` `none` | set `camera` + `cameraAmount` per shot; vary it, never use the same move twice in a row |
+| **what moves** | motif `travel`, layer drift, parallax, `scraps` | the engine gives every layer its own parallax plane; long shots need a subject that crosses the frame |
+| **what happens** | `stage`, beat events, `enter`, `events` | at least one *discrete* event per shot: an entrance, a sink, a wash, a cut of light |
+| **lyric** | `kinetic` / `karaoke` / `plain` + `lyricY` | change the treatment between sections, not every line |
+
+Two rules that follow from this and are not negotiable:
+
+1. **Every shot declares a camera move.** `none` is allowed only for a held final card.
+2. **Every shot has an event.** If the only thing changing is the texture drifting, add a `stage`
+   transition, a motif entrance, a beat-driven ring, or a cut to a different layer.
+
+### Imagery, not moods
+
+For each shot, write **what the viewer sees**, in one sentence, traceable to a lyric line or to what
+the user told you:
 
 - "a paper boat going down a rain gutter" — good: a place, an object, an action.
 - "sadness" — not imagery. Neither is "the vibe of the chorus".
 
-Then cover the song with those images. If a section has nothing to show, that is a signal: reread
-the lyric line, or ask the user what the song is about. Do not fill the gap with a scene you already
-have — that is how one song's props end up in another song's video.
+If a section has nothing to show, reread the lyric line or ask the user. Do not fill the gap with a
+scene you already have — that is how one song's props end up in another song's video.
 
 **The nine office scenes (`keyboard`, `desk`, `stampScene`, `emptyScene`, `call110`, `erase`,
 `voidScene`, `kitchenScene`, `logout`) are the props of one specific song about working late.** They
 exist as a worked example of how far the engine goes, not as a template. Use them only if the song is
-genuinely about that: an office, deadlines, being deleted, calling for help at 2 AM. For any other
-song, build from `field` / `typeOnly` or write a new scene.
+genuinely about that: an office, deadlines, being deleted, calling for help at 2 AM.
 
 ## Steps
 
@@ -75,10 +111,10 @@ with `--bpm <the tempo you hear>`.
 Write in `STORYBOARD.md` what the song is about, in three sentences. If the user gave comments,
 interview quotes or a mood brief, those are the director's notes and outrank your reading.
 
-Then mark the sections (intro / verse / chorus / bridge / outro) and give each one an emotional
+Then mark the sections (intro / verse / chorus / bridge / outro) and give each an emotional
 state: `still`, `tender`, `build`, `release`, `intense`, `peak`, `dawn`, `fade`.
 
-### 3. Choose the look and the imagery (the gate above)
+### 3. Fill the gate: look, cast, motion plan
 
 ### 4. Draft the storyboard
 
@@ -86,8 +122,9 @@ state: `still`, `tender`, `build`, `release`, `intense`, `peak`, `dawn`, `fade`.
 song-mv plan --features data/features.json --look paper --scenes generic --storyboard storyboard.json
 ```
 
-`plan` slices the song at bar lines where the energy actually changes and assigns a look, a state and
-a generic scene per shot. It is a first draft: replace the params with your imagery list.
+`plan` slices the song at bar lines where the energy actually changes, assigns a state per shot, and
+gives each shot a camera move chosen by energy (quiet songs drift, loud ones push or pull). It is a
+first draft: replace the params with your cast and motion plan.
 
 Shot fields:
 
@@ -95,12 +132,30 @@ Shot fields:
 |---|---|
 | `start` / `end` | seconds; shots tile the song in order |
 | `scene.type` | `field` / `typeOnly`, or a scene you wrote, or an office-pack scene |
-| `scene.params` | content for that scene: texture, motif, text, layout |
+| `scene.params` | content: texture, motif, text, layout, and the staging params below |
 | `palette` | emotional state for the shot; the look turns it into colours |
+| `camera` | `push` `pull` `panL` `panR` `driftUp` `driftDown` `none` |
+| `cameraAmount` | 0.03 quiet … 0.15 loud |
+| `cameraEase` | `linear` `inOutQuad` `outCubic` (default `inOutQuad`) |
+| `focus` | `[x, y]` the move centres on, default frame centre |
+| `handheld` | 0–3 px of shake; 0 for a locked-off card |
 | `enter` | `cut` / `dissolve` / `glitch` / `wipe` |
-| `loud` | camera punch on downbeats |
+| `loud` | beat punch on downbeats |
 
-Top level: `look`, `lyricsFile`, `duration`, optional `post` / `safety` overrides.
+Staging params inside `field`:
+
+| param | meaning |
+|---|---|
+| `layer` | `paper` `water` `rain` `snow` `ink` `motes` `thread` `window` |
+| `motif` | `boat` `window` `moon` `lantern` `chair` `birds` |
+| `motifAt` | `[x, y, size]` where the subject sits at the start |
+| `travel` | `[dx, dy]` how far it crosses the frame over the shot |
+| `stage` | `enter` `drift` `sink` `return` — the subject's arc |
+| `sinkAt` | fraction of the shot where a `sink` starts (default 0.55) |
+| `lyricStyle` | `kinetic` `karaoke` `plain` |
+| `events` | `false` disables beat rings |
+| `caption` / `run` | small mono text, bottom-left / top-left |
+| `still` | a held line for when no lyric is active |
 
 ### 5. Preview stills, not video
 
@@ -109,9 +164,13 @@ song-mv preview --storyboard storyboard.json --features data/features.json \
                 --times 5,30,60,90,120 --out out/preview
 ```
 
-Look at the images. For each one ask: *could this frame belong to a different song?* If yes, the
-imagery is not specific enough — go back to the list, not to the render. Fix text collisions and
-contrast here; a render is minutes, a still is a second.
+Look at the images, then ask two questions:
+
+- *Could this frame belong to a different song?* If yes, the imagery is not specific enough.
+- *Does this shot move?* A still cannot answer that — take two frames 1–2 s apart inside the same
+  shot and compare them. If only the lyric changed, the shot is dead.
+
+Fix text collisions and contrast here; a render is minutes, a still is a second.
 
 ### 6. Render
 
@@ -132,11 +191,8 @@ song-mv render --storyboard storyboard.json --features data/features.json \
 
 | type | what it draws | key params |
 |---|---|---|
-| `field` | a textured background, one motif, the lyric | `layer`, `motif`, `motifAt`, `folds`, `horizon`, `density`, `lyricY`, `still`, `caption` |
+| `field` | layered texture + one travelling motif + the lyric | `layer`, `motif`, `motifAt`, `travel`, `stage`, `lyricStyle`, `still`, `caption` |
 | `typeOnly` | the lyric as the whole picture | `lines[]`, `layout`, `size`, `accent`, `kicker` |
-
-`layer`: `paper` `water` `rain` `snow` `ink` `motes` `thread` `window`
-`motif`: `boat` `window` `moon` `lantern` `chair` `birds`
 
 ### Office pack (one song's props — see the warning above)
 
@@ -157,7 +213,11 @@ song-mv render --storyboard storyboard.json --features data/features.json \
 A scene is a function of `(ctx, tv, f, P)` — about twenty lines. Copy `field` from
 `engine/scenes.mjs`, register it in `SCENES`, and build the image from the primitives in
 `engine/primitive_fx.mjs` (grain, folds, water, rain, motes, ink, thread, light, boat, window, moon,
-lantern, chair, birds). `docs/writing-a-scene.md` walks through one.
+lantern, chair, birds).
+
+`engine/motion.mjs` is what keeps a new scene alive: `ease`, `ramp`, `decay`, `bob`, `stagger`, the
+`Camera` (already applied around every scene — read `ctx.cam.depth(k)` for a parallax plane), and
+`clipReveal` for draw-on reveals. `docs/writing-a-scene.md` walks through one end to end.
 
 Writing a scene that fits the song beats reusing one that does not. That trade is the whole reason
 this engine has primitives.
@@ -166,11 +226,12 @@ this engine has primitives.
 
 1. **Frame is a pure function of time.** `renderFrame(t)` keeps no state between calls; shots are
    rendered out of order and single frames are re-rendered.
-2. **Colour is state.** Pick palette names. A raw hex value is a design decision that needs a reason.
-3. **Lyrics are the melody line.** Time words to onsets, vary the treatment between sections, and let
+2. **A shot is a camera plus an event, not a picture.** Declare both, every time.
+3. **Colour is state.** Pick palette names. A raw hex value is a design decision that needs a reason.
+4. **Lyrics are the melody line.** Time words to onsets, vary the treatment between sections, and let
    the last line of a chorus land differently from the first.
-4. **One idea per shot.** If it takes two sentences to describe, split the shot.
-5. **Leave the last two seconds breathing.** Fade, don't cut.
+5. **One idea per shot.** If it takes two sentences to describe, split the shot.
+6. **Leave the last two seconds breathing.** Fade, don't cut.
 
 ## Licensing — say this before shipping
 

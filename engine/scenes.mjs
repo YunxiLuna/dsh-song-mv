@@ -12,6 +12,7 @@ import {
   slam, bounce, wall, sliced, onPath, decode, burst, karaoke,
 } from './lyric_fx.mjs';
 import { mulberry32 } from './prng.mjs';
+import { ease, rampE, decay, bob } from './motion.mjs';
 import {
   grainField, foldCreases, waterSurface, rainField, driftMotes, inkBleed,
   threadLines, lightShaft, paperBoat, litWindow, moonDisc, lantern, emptyChair, birdLine,
@@ -984,53 +985,143 @@ function lyricsOf(ctx) { return ctx.lyr || { activeAt: () => ({ cur: null }) }; 
 export function field(ctx, tv, f, P = { 'start': 0.0 }) {
   const p = ctx.pal, g = ctx.g;
   ctx.clear();
-  const t0 = tv - P.start;
-  const float = Math.sin(t0 * 0.6);
+  const s = P.start ?? 0;
+  const t0 = tv - s;                       // seconds inside this shot
+  const cam = ctx.cam ?? { depth: () => ({ x: 0, y: 0 }) };
+  const layer = P.layer ?? 'paper';
 
+  // --- depth offsets -------------------------------------------------------
+  // Three planes: a slow back wash, the layer itself, and near foreground
+  // specks. Parallax is what makes a push-in read as movement through space.
+  const back = cam.depth(0.12);
+  const mid = cam.depth(0.45);
+  const near = cam.depth(1.0);
+
+  // --- back plane ----------------------------------------------------------
   const wash = g.createLinearGradient(0, 0, 0, 1080);
   wash.addColorStop(0, hexA(p.panel, 1));
   wash.addColorStop(1, hexA(p.bg, 1));
   g.fillStyle = wash;
-  g.fillRect(0, 0, 1920, 1080);
+  g.fillRect(-120, -120, 2160, 1320);
 
-  const layer = P.layer ?? 'paper';
+  g.save();
+  g.translate(back.x, back.y);
+  if (layer === 'paper' || layer === 'ink' || layer === 'motes' || layer === 'thread') {
+    grainField(g, p, tv, f, { alpha: 0.16 });
+  }
+  if (layer === 'motes') {
+    lightShaft(g, p, P.shaftX ?? 760, -80, 540, 1300, { alpha: 0.16 + (f.rmsEnv ?? 0) * 0.06 });
+  }
+  g.restore();
+
+  // --- mid plane: the texture that defines the world ------------------------
+  g.save();
+  g.translate(mid.x, mid.y);
+  const drift = (t0 * 9) % 240;            // slow sideways travel, wraps
+
   if (layer === 'paper') {
-    grainField(g, p, tv, f, { alpha: 0.2 });
-    foldCreases(g, p, tv, f, { n: P.folds ?? 3, alpha: 0.45 });
+    foldCreases(g, p, tv, f, { n: P.folds ?? 3, alpha: 0.45, offset: drift * 0.2 });
+    paperScraps(g, p, tv, f, { n: P.scraps ?? 7 });
   } else if (layer === 'water') {
     waterSurface(g, p, tv, f, { horizon: P.horizon ?? 600, reflectX: P.motifX ?? 960 });
-    if (P.rain) rainField(g, p, tv, f, { density: 90, alpha: 0.22 });
-    grainField(g, p, tv, f, { alpha: 0.07 });
+    waterRipples(g, p, tv, f, { horizon: P.horizon ?? 600, n: P.ripples ?? 12 });
+    if (P.rain) rainBand(g, p, tv, f, { n: 90, alpha: 0.2, vy: 620, vx: 40, w: 1.4, spread: 0.5 });
   } else if (layer === 'rain') {
-    grainField(g, p, tv, f, { alpha: 0.12 });
-    rainField(g, p, tv, f, { density: P.density ?? 200, alpha: 0.42 });
+    // far band slow and thin, near band fast and wide: the shot gains depth
+    rainBand(g, p, tv, f, { n: 220, alpha: 0.16, vy: 520, vx: 60, w: 1.1, spread: 1.0 });
+    rainBand(g, p, tv, f, { n: 120, alpha: 0.3, vy: 900, vx: 110, w: 1.7, spread: 1.15, seed: 7 });
+    rainBand(g, p, tv, f, { n: 40, alpha: 0.45, vy: 1400, vx: 170, w: 2.6, spread: 1.3, seed: 19 });
+    puddleRings(g, p, tv, f, { y: P.puddleY ?? 820 });
   } else if (layer === 'snow') {
-    driftMotes(g, p, tv, f, { n: 170, size: 2.6, alpha: 0.65, rise: 40 });
+    driftMotes(g, p, tv, f, { n: P.density ?? 180, size: 2.6, alpha: 0.6, rise: 44 });
+    driftMotes(g, p, tv, f, { n: 40, size: 5.2, alpha: 0.4, rise: 30, seed: 11 });
   } else if (layer === 'ink') {
-    inkBleed(g, p, tv, f, { x: P.motifAt?.[0] ?? 960, y: P.motifAt?.[1] ?? 430, r: P.r ?? 260 });
-    grainField(g, p, tv, f, { alpha: 0.14 });
+    // the stain keeps spreading for the whole shot
+    inkBleed(g, p, tv, f, { x: P.motifAt?.[0] ?? 960, y: P.motifAt?.[1] ?? 430, r: (P.r ?? 260) * (0.72 + 0.42 * clamp01(t0 / 14)), breathe: t0 });
   } else if (layer === 'motes') {
-    lightShaft(g, p, P.shaftX ?? 760, -80, 540, 1200, { alpha: 0.16 });
-    driftMotes(g, p, tv, f, { n: 130, alpha: 0.55 });
+    driftMotes(g, p, tv, f, { n: 130, alpha: 0.5, rise: 26 });
   } else if (layer === 'thread') {
-    threadLines(g, p, tv, f, { n: P.threads ?? 16 });
-    driftMotes(g, p, tv, f, { n: 40, alpha: 0.35 });
+    threadLines(g, p, tv, f, { n: P.threads ?? 16, t0 });
+    driftMotes(g, p, tv, f, { n: 40, alpha: 0.32 });
   } else if (layer === 'window') {
-    // Looking out through a rain-covered pane: the room is implied by the frame.
-    grainField(g, p, tv, f, { alpha: 0.1 });
     const [wx, wy, ww, wh] = P.pane ?? [120, 96, 1680, 886];
     litWindow(g, p, wx, wy, ww, wh, { warm: false });
     g.save();
     g.beginPath();
     g.rect(wx + 6, wy + 6, ww - 12, wh - 12);
     g.clip();
-    rainField(g, p, tv, f, { density: P.density ?? 170, alpha: 0.3 });
+    rainBand(g, p, tv, f, { n: 170, alpha: 0.3, vy: 700, vx: 70, w: 1.5, spread: 1.05, seed: 3 });
+    rainBand(g, p, tv, f, { n: 46, alpha: 0.42, vy: 1150, vx: 120, w: 2.4, spread: 1.2, seed: 23 });
     if (P.moon) moonDisc(g, p, wx + ww * 0.74, wy + wh * 0.28, ww * 0.045, { phase: 0.45 });
     g.restore();
+    // a bead of water running down the glass
+    const beadY = wy + 40 + ((t0 * 46) % (wh - 90));
+    g.strokeStyle = hexA(p.sub, 0.3);
+    g.lineWidth = 2;
+    g.beginPath();
+    g.moveTo(wx + ww * 0.34, beadY);
+    g.quadraticCurveTo(wx + ww * 0.35, beadY + 26, wx + ww * 0.34, beadY + 54);
+    g.stroke();
+  }
+  g.restore();
+
+  // --- motif: entrance, idle, beat reaction --------------------------------
+  const motif = P.motif;
+  if (motif) {
+    const [mx, my, ms] = P.motifAt ?? [960, 560, 220];
+    const inK = rampE(tv, s + (P.enterAt ?? 0.2), P.enterDur ?? 1.15, ease.outBack);
+    // f.sinceBeat is seconds since the last beat; the kick decays from it.
+    const kick = f.onsetPulse > 0.52 ? decay(f.sinceBeat ?? 99, 0, 0.34) : 0;
+    const idle = bob(tv, P.idle ?? 5, P.idleHz ?? 0.32);
+    // Travel: over the shot the motif crosses the frame, so a long take reads
+    // as movement rather than a poster. Defaults suit each motif.
+    const dur = P.dur ?? 18;
+    const trav = P.travel ?? (motif === 'boat' ? [170, -14] : motif === 'birds' ? [340, -60] : motif === 'lantern' ? [0, 0] : [56, 0]);
+    const travK = ease.inOutQuad(clamp01(t0 / dur));
+    const motX = mx + trav[0] * travK;
+    const motY = my + trav[1] * travK + idle - (1 - inK) * 74 - kick * 6;
+    // Motif story beats: the same subject can drift, sink, or come back, so a
+    // handful of shots can tell a small story with one prop.
+    const stage = P.stage ?? 'drift';
+    let sinkK = 0, sinkRot = 0, riseK = 0;
+    if (stage === 'sink') {
+      sinkK = ease.inQuad(clamp01((t0 - dur * (P.sinkAt ?? 0.55)) / Math.max(1.2, dur * 0.3)));
+      sinkRot = sinkK * 0.5;
+    } else if (stage === 'return') {
+      riseK = 1 - ease.outCubic(clamp01(t0 / Math.max(1.4, P.riseDur ?? 2.6)));
+    }
+    const motS = ms * (0.94 + 0.06 * inK) * (1 + kick * 0.018) * (1 - sinkK * 0.12);
+    const motR = (P.rot ?? -0.03) + Math.sin(tv * 0.55) * 0.028 + kick * 0.012 + sinkRot;
+
+    g.save();
+    g.globalAlpha = clamp01(inK * 1.2) * (1 - sinkK * 0.85);
+    const mo = cam.depth(0.78);
+    g.translate(mo.x, mo.y + sinkK * motS * 0.85 + riseK * motS * 1.6);
+    if (motif === 'boat') {
+      if (layer === 'water') wake(g, p, motX, motY, motS, tv, f);
+      paperBoat(g, p, motX, motY, motS, { rot: motR });
+    }
+    else if (motif === 'window') litWindow(g, p, motX - motS * 1.6, motY - motS * 1.1, motS * 3.2, motS * 2.2);
+    else if (motif === 'moon') moonDisc(g, p, motX, motY + idle * 0.3, motS * 0.55, { phase: P.phase ?? 0.15 });
+    else if (motif === 'lantern') lantern(g, p, motX, motY, motS * 0.6, { sway: Math.sin(tv * 0.8) * 0.05 + kick * 0.03 });
+    else if (motif === 'chair') emptyChair(g, p, motX, motY, motS * 1.4, { rot: motR * 0.6 });
+    else if (motif === 'birds') birdLine(g, p, motX, motY, motS * 2.4, { t: tv, flyAway: P.flyAway ?? 0 });
+    g.restore();
+
+    // the reaction the motif leaves in the world: expanding rings
+    if (P.events !== false && f.onsetPulse > 0.55) {
+      ringPulse(g, p, motX, motY + motS * 0.62, decay(f.sinceBeat ?? 99, 0, 0.9), p.accentHot);
+    }
   }
 
+  // --- near plane: foreground specks, faster than everything --------------
+  g.save();
+  g.translate(near.x * 1.6, near.y * 1.6);
+  driftMotes(g, p, tv, f, { n: P.near ?? 26, size: 3.4, alpha: 0.3, rise: 60, seed: 31 });
+  g.restore();
+
+  // --- type ---------------------------------------------------------------
   if (P.run && P.run.length) {
-    // a thin line of type running along the frame, like a thought
     g.font = `500 20px ${MONO}`;
     g.fillStyle = hexA(p.mute, 0.7);
     g.textAlign = 'left';
@@ -1038,27 +1129,29 @@ export function field(ctx, tv, f, P = { 'start': 0.0 }) {
     g.fillText(P.run, 96, 132);
   }
 
-  const motif = P.motif;
-  if (motif) {
-    const [mx, my, ms] = P.motifAt ?? [960, 560, 220];
-    const bob = float * 6;
-    if (motif === 'boat') paperBoat(g, p, mx, my + bob, ms, { rot: -0.04 + float * 0.03 });
-    else if (motif === 'window') litWindow(g, p, mx - ms * 1.6, my - ms * 1.1, ms * 3.2, ms * 2.2);
-    else if (motif === 'moon') moonDisc(g, p, mx, my + bob * 0.4, ms * 0.55, { phase: P.phase ?? 0.15 });
-    else if (motif === 'lantern') lantern(g, p, mx, my + bob, ms * 0.6, { sway: float * 0.03 });
-    else if (motif === 'chair') emptyChair(g, p, mx, my + bob, ms * 1.4, { rot: -0.02 });
-    else if (motif === 'birds') birdLine(g, p, mx, my, ms * 2.4, { t: tv, flyAway: P.flyAway ?? 0 });
-  }
-
   const { cur } = lyricsOf(ctx).activeAt(tv);
   const size = P.lyricSize ?? 92;
   const y = P.lyricY ?? 880;
   const x = P.lyricX ?? 960;
   if (cur && tv - cur.t < 8) {
-    kinetic(g, cur.text, x, y, tv, cur.t, {
-      size, color: p.text, hot: p.accentHot, ghost: p.accent,
-      step: 0.16, settle: 0.32, font: WORD,
-    });
+    const style = P.lyricStyle ?? 'kinetic';
+    if (style === 'karaoke') {
+      karaokeLine(g, cur.text, x, y, tv, cur.t, {
+        size, dim: hexA(p.text, 0.26), hot: p.text, accent: p.accentHot, font: WORD,
+        rate: P.lineRate ?? 0.11,
+      });
+    } else if (style === 'plain') {
+      g.font = `700 ${size}px ${WORD}`;
+      g.fillStyle = p.text;
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText(cur.text, x, y);
+    } else {
+      kinetic(g, cur.text, x, y, tv, cur.t, {
+        size, color: p.text, hot: p.accentHot, ghost: p.accent,
+        step: 0.16, settle: 0.32, font: WORD,
+      });
+    }
   } else if (P.still) {
     g.font = `700 ${size}px ${WORD}`;
     g.fillStyle = hexA(p.mute, 0.55);
@@ -1079,6 +1172,113 @@ export function field(ctx, tv, f, P = { 'start': 0.0 }) {
   // error rather than as energy, so `field` stays clean unless asked.
   if (P.glitch && f.onsetPulse > 0.55) glitchSlices(g, f, tv);
 }
+
+// --- field helpers ---------------------------------------------------------
+
+/** One depth band of rain, falling with its own speed and slant. */
+function rainBand(g, p, tv, f, { n = 140, alpha = 0.3, vy = 700, vx = 60, w = 1.5, spread = 1, seed = 1 }) {
+  const rnd = mulberry32(seed * 7919 + 13);
+  g.save();
+  g.strokeStyle = hexA(p.sub, alpha);
+  g.lineWidth = w;
+  g.lineCap = 'round';
+  const h = 1160, wdt = 2000;
+  for (let i = 0; i < n; i++) {
+    const bx = rnd() * wdt - 40;
+    const phase = rnd();
+    const len = 22 + rnd() * 46 * spread;
+    const y = ((phase * h + tv * vy) % h) - 40;
+    const x = bx + (y / h) * vx * (0.6 + rnd() * 0.8);
+    g.beginPath();
+    g.moveTo(x, y);
+    g.lineTo(x - vx * 0.02 * len, y + len);
+    g.stroke();
+  }
+  g.restore();
+}
+
+/** Sun glitter / current lines on a water surface. */
+function waterRipples(g, p, tv, f, { horizon = 600, n = 26 }) {
+  g.save();
+  for (let i = 0; i < n; i++) {
+    const d = i / n;
+    const y = horizon + 22 + Math.pow(d, 1.8) * 360;
+    const amp = 1.5 + d * 5;
+    const speed = 0.5 + d * 1.3;
+    const alpha = (0.06 + (1 - d) * 0.1 + (f.rmsEnv ?? 0) * 0.04) * 0.9;
+    g.strokeStyle = hexA(p.accentHot, alpha);
+    g.lineWidth = 1 + d * 1.2;
+    // short segment instead of a full-width rule: reads as water, not scanlines
+    const x0 = 260 + ((i * 137) % 900) - d * 120;
+    const len = 320 + d * 520;
+    g.beginPath();
+    for (let x = x0; x <= x0 + len; x += 32) {
+      const yy = y + Math.sin((x * 0.008) + tv * speed + i) * amp;
+      if (x === x0) g.moveTo(x, yy);
+      else g.lineTo(x, yy);
+    }
+    g.stroke();
+  }
+  g.restore();
+}
+
+/** Concentric rings where rain lands, on a puddle near the camera. */
+function puddleRings(g, p, tv, f, { y = 820 }) {
+  const rnd = mulberry32(4242);
+  g.save();
+  for (let i = 0; i < 5; i++) {
+    const cycle = 1.6 + rnd() * 1.4;
+    const phase = (tv + rnd() * 10) % cycle;
+    const k = phase / cycle;
+    const cx = 160 + rnd() * 1600;
+    const r = 6 + k * 54;
+    g.strokeStyle = hexA(p.sub, (1 - k) * 0.3);
+    g.lineWidth = 1.4;
+    g.beginPath();
+    g.ellipse(cx, y + rnd() * 40, r, r * 0.28, 0, 0, Math.PI * 2);
+    g.stroke();
+  }
+  g.restore();
+}
+
+/** A single expanding ring, used as the motif's reaction to a strong beat. */
+function ringPulse(g, p, cx, cy, k, color) {
+  if (k <= 0) return;
+  g.save();
+  g.globalAlpha = k * 0.5;
+  g.strokeStyle = hexA(color, 0.8);
+  g.lineWidth = 2 + k * 3;
+  g.beginPath();
+  g.ellipse(cx, cy, 60 + (1 - k) * 260, (60 + (1 - k) * 260) * 0.3, 0, 0, Math.PI * 2);
+  g.stroke();
+  g.restore();
+}
+
+/** Karaoke fill: the sung part of the line is bright, the rest is dim. */
+function karaokeLine(g, text, x, y, tv, t0, { size = 92, dim, hot, accent, font = WORD, rate = 0.16 } = {}) {
+  const chars = [...text];
+  g.save();
+  g.font = `700 ${size}px ${font}`;
+  g.textAlign = 'left';
+  g.textBaseline = 'middle';
+  const widths = chars.map((c) => g.measureText(c).width);
+  const total = widths.reduce((a, b) => a + b, 0);
+  let px = x - total / 2;
+  const sung = Math.min(chars.length, Math.max(0, (tv - t0) / rate));
+  for (let i = 0; i < chars.length; i++) {
+    const on = i < Math.floor(sung);
+    g.fillStyle = on ? hot : dim;
+    g.fillText(chars[i], px, y + (on ? 0 : 2));
+    if (i === Math.floor(sung)) {
+      // a soft leading edge that reads as the voice arriving
+      g.fillStyle = hexA(accent, 0.5);
+      g.fillRect(px, y + size * 0.52, widths[i], 3);
+    }
+    px += widths[i];
+  }
+  g.restore();
+}
+
 
 /**
  * Scene `typeOnly` — the lyrics are the picture. No props at all.
@@ -1194,3 +1394,49 @@ export const SCENE_META = {
   field: { start: 0, end: 8, enter: 'dissolve', palette: 'tender' },
   typeOnly: { start: 0, end: 8, enter: 'cut', palette: 'still' },
 };
+
+/** Wake trailing a boat: two arcs and a fading bow wave. */
+function wake(g, p, x, y, size, tv, f) {
+  g.save();
+  g.strokeStyle = hexA(p.accentHot, 0.28);
+  g.lineWidth = 2;
+  for (let i = 0; i < 3; i++) {
+    const k = ((tv * 0.6 + i * 0.33) % 1);
+    g.globalAlpha = (1 - k) * 0.5;
+    const w = size * (0.9 + k * 1.5);
+    g.beginPath();
+    g.ellipse(x - size * 0.25, y + size * 0.3 + k * 16, w, w * 0.16, 0, 0, Math.PI * 2);
+    g.stroke();
+  }
+  g.restore();
+}
+
+/** Torn paper scraps crossing the frame, one per bar, each on its own arc. */
+function paperScraps(g, p, tv, f, { n = 7 } = {}) {
+  const rnd = mulberry32(913);
+  g.save();
+  for (let i = 0; i < n; i++) {
+    const cycle = 9 + rnd() * 7;
+    const phase = (tv + rnd() * cycle) % cycle;
+    const k = phase / cycle;
+    const y0 = 120 + rnd() * 800;
+    const x = -80 + k * 2100;
+    const y = y0 + Math.sin(k * Math.PI * 2 + i) * 26;
+    const w = 16 + rnd() * 26;
+    const h = w * (0.5 + rnd() * 0.5);
+    g.save();
+    g.translate(x, y);
+    g.rotate(Math.sin(k * Math.PI * 2 + i * 1.7) * 0.5);
+    g.globalAlpha = 0.16 + rnd() * 0.16;
+    g.fillStyle = hexA(p.raised, 0.9);
+    g.beginPath();
+    g.moveTo(-w / 2, -h / 2);
+    g.lineTo(w / 2, -h / 2 + 3);
+    g.lineTo(w / 2 - 2, h / 2);
+    g.lineTo(-w / 2 + 1, h / 2 - 2);
+    g.closePath();
+    g.fill();
+    g.restore();
+  }
+  g.restore();
+}

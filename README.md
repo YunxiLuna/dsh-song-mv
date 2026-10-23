@@ -6,10 +6,16 @@ Give it a song and an `.lrc` and it draws a beat-synced video, one frame at a
 time, on a canvas. Lyrics are typography, not a subtitle bar.
 
 What the video looks like is a decision you make, not a default you inherit.
-A **look** picks the colour world — paper, rain, daylight, ember, mono, or the
-dark neon one — and a small set of **primitives** (grain, folds, water, rain,
-ink, motes, light, and a handful of motifs) builds the imagery that song needs.
-A song about a paper boat gets paper and rain; it does not get an office.
+A **look** picks the colour world, a small set of **primitives** builds the
+imagery, and every shot declares a **camera move** and an **event** — so the
+result moves like a film instead of holding like a poster.
+
+A song about a paper boat gets paper, rain, and a boat that crosses the frame;
+it does not get an office.
+
+| the same shot, six looks | |
+|---|---|
+| ![looks](docs/demo/looks.png) | One `field`/`water` shot with the same lyric in all six colour worlds. Only the look changes. |
 
 Two ways to run it. As a DSH plugin, so you can just ask your agent for a video.
 Or as a CLI, if you'd rather drive it yourself.
@@ -36,6 +42,28 @@ storyboard format and the synthetic demo.
 
 A frame is a pure function of time. `renderFrame(t)` gives you the same pixels on
 every run, which is why you can change one line, re-render, and diff the two.
+
+## A shot is a camera plus an event
+
+The engine applies a camera around every scene, so nothing renders still by
+accident. Each shot picks a move in its storyboard entry:
+
+```json
+{ "id": "03_sink", "start": 43.4, "end": 72.0,
+  "palette": "build", "camera": "push", "cameraAmount": 0.09, "handheld": 1.4,
+  "scene": { "type": "field", "params": {
+    "layer": "water", "horizon": 560,
+    "motif": "boat", "motifAt": [1080, 600, 240],
+    "travel": [-220, 0], "stage": "sink", "sinkAt": 0.5,
+    "lyricStyle": "karaoke" } } }
+```
+
+`push` `pull` `panL` `panR` `driftUp` `driftDown` are the moves. Inside the
+scene, three planes move at different rates for parallax, the motif crosses the
+frame on `travel`, and `stage` gives it an arc — `enter`, `drift`, `sink`,
+`return` — so a song can be told with one subject rather than six unconnected
+images. Beat events (rings, kicks, camera punches) come from the analysis, not
+from a hand-keyed timeline. See [docs/motion.md](docs/motion.md).
 
 ## The two decisions
 

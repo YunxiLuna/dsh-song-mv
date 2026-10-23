@@ -166,11 +166,30 @@ for (let i = 0; i < cuts.length - 1; i++) {
     // deep-ish clone so params can be edited per shot without aliasing
     pick = { type: base.type, params: { ...base.params } };
   }
+  // A camera move per shot, chosen by energy: quiet songs drift, loud ones
+  // push or pull. Without this every shot is a static frame.
+  const CAMERA = {
+    still: ['driftDown', 0.05],
+    tender: ['push', 0.07],
+    build: ['panR', 0.06],
+    intense: ['push', 0.11],
+    peak: ['pull', 0.13],
+  };
+  const [camera, cameraAmount] = CAMERA[state];
+  if (!POOLS) {
+    // Staged defaults so an auto-planned shot still has motion in it.
+    pick.params = {
+      lyricStyle: 'karaoke',
+      ...pick.params,
+    };
+  }
   shots.push({
     id: `${String(i + 1).padStart(2, '0')}_${pick.type}`,
     start, end,
     palette: state,
     enter: e > 1.3 ? 'glitch' : 'dissolve',
+    camera, cameraAmount,
+    loud: state === 'intense' || state === 'peak',
     scene: pick,
   });
 }

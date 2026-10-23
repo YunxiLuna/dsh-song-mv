@@ -1,9 +1,9 @@
 {
   "name": "dsh-song-mv",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": false,
   "type": "module",
-  "description": "Turn a song and an .lrc into a code-rendered music video: pick a look, build the imagery from primitives, render frames straight into ffmpeg.",
+  "description": "Code-rendered music videos: looks, primitives, camera moves, beat-synced lyrics.",
   "main": "./lib/index.js",
   "license": "MIT",
   "bin": {

@@ -35,6 +35,10 @@ threads; optionally one object; the active lyric on top.
   "horizon": 640,              // water/rain: where the surface starts
   "density": 220,              // rain: streak count
   "folds": 3,                  // paper: number of crease lines
+  "travel": [260, -14],        // how far the motif crosses the frame over the shot
+  "stage": "sink",             // enter | drift | sink | return  (the subject's arc)
+  "sinkAt": 0.55,              // fraction of the shot where a sink begins
+  "lyricStyle": "karaoke",     // kinetic | karaoke | plain
   "lyricY": 900,               // where the line lands (default 880)
   "still": "…",                // text to hold when no lyric is active
   "caption": "…"               // small mono caption, bottom left
@@ -43,6 +47,11 @@ threads; optionally one object; the active lyric on top.
 
 Layers are style-neutral: they take their colours from the look, so `water` in
 `paper` is a warm reflection and `water` in `rain` is a cold one.
+
+`field` draws three planes (far wash, the layer, near specks) with real parallax,
+so it needs a camera move on the shot to look filmed — the engine applies that
+for you; see `docs/motion.md`. `travel` and `stage` are what stop a long take from
+being a still: the motif crosses the frame, and can enter, sink, or come back.
 
 ---
 
