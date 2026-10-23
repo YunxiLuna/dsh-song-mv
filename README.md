@@ -65,6 +65,32 @@ frame on `travel`, and `stage` gives it an arc — `enter`, `drift`, `sink`,
 images. Beat events (rings, kicks, camera punches) come from the analysis, not
 from a hand-keyed timeline. See [docs/motion.md](docs/motion.md).
 
+## Lyrics are timing, not text
+
+The fill follows the voice when the `.lrc` is word-timed
+(`[00:37.67]<00:37.67>把名字从手机里 <00:39.79>悄悄删掉了`); otherwise it falls
+back to a constant reading rate.
+
+Most "the lyrics are off" complaints are the file, not the renderer. Streaming
+exports often ship `song.lrc` and `song.std.lrc`, and the `.std` variant is
+derived by stamping each line with its **last** word mark — so lines arrive late
+by a different amount each time:
+
+```
+line                    word-timed   .std    lag
+把名字从手机里 悄悄删掉了      37.67    43.42   +5.75 s
+聊天记录停在最底下             28.61    29.85   +1.24 s
+```
+
+```bash
+song-mv check-lyrics song.std.lrc --duration 200.9
+# vs song.lrc: 49 matching lines, 49 stamped late, median lag 1.96s
+# PROBLEM: derived using each line's LAST word mark
+```
+
+`docs/lyrics.md` covers the offset tag, the gap column, and when a long gap is
+the source's fault rather than yours.
+
 ## Writing a scene is a pipeline step
 
 Generic scenes can carry a shot, but they cannot carry a film. The density you

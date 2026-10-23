@@ -1139,6 +1139,7 @@ export function field(ctx, tv, f, P = { 'start': 0.0 }) {
     if (style === 'karaoke') {
       karaokeLine(g, cur.text, x, y, tv, cur.t, {
         size, dim: hexA(p.text, 0.26), hot: p.text, accent: p.accentHot, font: WORD,
+        chars: charTimings(cur, P.lineRate ?? 0.11),
         rate: P.lineRate ?? 0.11,
       });
     } else if (style === 'plain') {
@@ -1256,7 +1257,31 @@ function ringPulse(g, p, cx, cy, k, color) {
 }
 
 /** Karaoke fill: the sung part of the line is bright, the rest is dim. */
-function karaokeLine(g, text, x, y, tv, t0, { size = 92, dim, hot, accent, font = WORD, rate = 0.16 } = {}) {
+/**
+ * Per-character times for a lyric line.
+ *
+ * With word marks (enhanced LRC) each fragment's characters are spread across
+ * the gap to the next fragment, so the highlight follows the voice. Without
+ * them we fall back to a constant reading rate.
+ */
+export function charTimings(line, rate = 0.11) {
+  const chars = [...(line?.text ?? '')];
+  if (!line) return [];
+  if (!line.words || !line.words.length) {
+    return chars.map((_, i) => line.t + i * rate);
+  }
+  const out = [];
+  for (let w = 0; w < line.words.length; w++) {
+    const seg = [...line.words[w].text];
+    const next = line.words[w + 1];
+    const dt = next ? Math.max(0.08, next.t - line.words[w].t) : Math.max(0.08, seg.length * rate);
+    const step = dt / Math.max(1, seg.length);
+    for (let i = 0; i < seg.length; i++) out.push(line.words[w].t + i * step);
+  }
+  return out.slice(0, chars.length);
+}
+
+function karaokeLine(g, text, x, y, tv, t0, { size = 92, dim, hot, accent, font = WORD, rate = 0.16, chars: timings = null } = {}) {
   const chars = [...text];
   g.save();
   g.font = `700 ${size}px ${font}`;
@@ -1265,7 +1290,9 @@ function karaokeLine(g, text, x, y, tv, t0, { size = 92, dim, hot, accent, font 
   const widths = chars.map((c) => g.measureText(c).width);
   const total = widths.reduce((a, b) => a + b, 0);
   let px = x - total / 2;
-  const sung = Math.min(chars.length, Math.max(0, (tv - t0) / rate));
+  const sung = timings && timings.length
+    ? timings.reduce((n, t) => n + (t <= tv ? 1 : 0), 0)
+    : Math.min(chars.length, Math.max(0, (tv - t0) / rate));
   for (let i = 0; i < chars.length; i++) {
     const on = i < Math.floor(sung);
     g.fillStyle = on ? hot : dim;
@@ -1359,7 +1386,7 @@ export function designed(ctx, tv, f, P = { start: 0 }) {
   const ly = P.lyricY ?? 880;
   if (cur && tv - cur.t < 8) {
     const style = P.lyricStyle ?? 'karaoke';
-    if (style === 'karaoke') karaokeLine(g, cur.text, 960, ly, tv, cur.t, { size, dim: hexA(p.text, 0.26), hot: p.text, accent: p.accentHot, font: WORD, rate: P.lineRate ?? 0.11 });
+    if (style === 'karaoke') karaokeLine(g, cur.text, 960, ly, tv, cur.t, { size, dim: hexA(p.text, 0.26), hot: p.text, accent: p.accentHot, font: WORD, chars: charTimings(cur, P.lineRate ?? 0.11), rate: P.lineRate ?? 0.11 });
     else if (style === 'plain') {
       g.font = `700 ${size}px ${WORD}`; g.fillStyle = p.text;
       g.textAlign = 'center'; g.textBaseline = 'middle';

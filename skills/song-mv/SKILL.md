@@ -10,7 +10,11 @@ There is no timeline editor and no stock footage.
 
 - The audio file (`.mp3` / `.flac` / `.wav` / anything ffmpeg reads).
 - A `.lrc` lyric file **if the song has lyrics**. Ask for it; do not scrape lyrics from a streaming
-  service — they are licensed text and must not be committed to a repo.
+  service — they are licensed text and must not be committed to a repo. If the folder holds both
+  `song.lrc` and `song.std.lrc`, use the plain `.lrc`: the `.std` variant is usually derived and
+  stamped with each line's **last** word mark, which makes every line late by a different amount.
+  Run `song-mv check-lyrics lyrics.lrc --duration <seconds>` before you trust it (see
+  `docs/lyrics.md`).
 - `ffmpeg` on PATH. Check with `ffmpeg -version`; if missing, tell the user how to install it.
 
 ## The gate: decide three things before writing any JSON
@@ -106,7 +110,18 @@ onsets in every scene come from it. Do not hand-edit it.
 Half/double-time ambiguity is normal: if the reported tempo is obviously wrong for the song, rerun
 with `--bpm <the tempo you hear>`.
 
-### 2. Read the song
+### 2. Check the lyrics
+
+```bash
+song-mv check-lyrics lyrics.lrc --duration 200.9
+```
+
+It prints every line's start and the gap to the next, and fails on timestamps that do not advance,
+lines past the end of the audio, and the `.std.lrc` end-stamping trap. Word-timed files (`<mm:ss.xx>`
+marks) drive the karaoke fill per fragment; plain files fall back to `lineRate`. Fix timing here —
+it is invisible in a still and obvious in motion.
+
+### 3. Read the song
 
 Write in `STORYBOARD.md` what the song is about, in three sentences. If the user gave comments,
 interview quotes or a mood brief, those are the director's notes and outrank your reading.
@@ -114,9 +129,9 @@ interview quotes or a mood brief, those are the director's notes and outrank you
 Then mark the sections (intro / verse / chorus / bridge / outro) and give each an emotional
 state: `still`, `tender`, `build`, `release`, `intense`, `peak`, `dawn`, `fade`.
 
-### 3. Fill the gate: look, cast, motion plan
+### 4. Fill the gate: look, cast, motion plan
 
-### 4. Draft the storyboard
+### 5. Draft the storyboard
 
 ```bash
 song-mv plan --features data/features.json --look paper --scenes generic --storyboard storyboard.json
@@ -157,7 +172,7 @@ Staging params inside `field`:
 | `caption` / `run` | small mono text, bottom-left / top-left |
 | `still` | a held line for when no lyric is active |
 
-### 5. Compose or write the shots — this is part of the job
+### 6. Compose or write the shots — this is part of the job
 
 Drafting the storyboard gives you boundaries and states, not images. Each shot's image is
 authored, in one of three lanes (details in `docs/scene-pipeline.md`):
@@ -180,7 +195,7 @@ per plane.
 
 Do not skip to rendering because the stills look nice. Composition is not motion.
 
-### 6. Motion check — a hard gate
+### 7. Motion check — a hard gate
 
 ```bash
 song-mv check-motion --storyboard storyboard.json --features data/features.json
@@ -194,7 +209,7 @@ usually one beat away from being alive — shorten the travel window, add a ring
 Record the scores in `STORYBOARD.md` next to each shot; it is the only objective evidence that the
 film moves.
 
-### 7. Preview stills, not video
+### 8. Preview stills, not video
 
 ```bash
 song-mv preview --storyboard storyboard.json --features data/features.json \
@@ -209,14 +224,14 @@ Look at the images, then ask two questions:
 
 Fix text collisions and contrast here; a render is minutes, a still is a second.
 
-### 8. Render
+### 9. Render
 
 ```bash
 song-mv render --storyboard storyboard.json --features data/features.json \
                --audio song.wav --out out/mv.mp4
 ```
 
-### 9. Check the encoded file
+### 10. Check the encoded file
 
 - Extract frames from the **mp4**, not from the engine, and confirm they match the previews.
 - `song-mv qa --file out/mv.mp4` reports the luma curve and hard flashes. More than ~3 luminance

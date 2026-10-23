@@ -19,6 +19,7 @@ const COMMANDS = {
   analyze: 'analyze.mjs',
   plan: 'plan.mjs',
   preview: 'preview.mjs',
+  'check-lyrics': 'check-lyrics.mjs',
   'check-motion': 'check-motion.mjs',
   'new-scene': 'new-scene.mjs',
   render: 'render.mjs',
@@ -31,6 +32,7 @@ if (!cmd || cmd === '--help' || cmd === '-h' || cmd === 'help') {
   song-mv analyze <audio>    analyze tempo/beats/spectrum -> features.json
   song-mv plan               draft a storyboard from the features
   song-mv preview            render a few stills to check composition
+  song-mv check-lyrics       sanity-check an .lrc (timing, .std trap, offset)
   song-mv check-motion       measure whether each shot actually moves
   song-mv new-scene <name>   start a scene file shaped like the engine expects
   song-mv render             render the full video (frames piped into ffmpeg)

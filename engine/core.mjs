@@ -123,18 +123,91 @@ export class Features {
 }
 
 // ---------- Lyrics ----------------------------------------------------------------
+const TIME_TAG = /\[(\d{1,3}):(\d{2})\.(\d{1,3})\]/y;
+const INLINE_TAG = /<(\d{1,3}):(\d{2})\.(\d{1,3})>/g;
+const META_TAG = /^\[(ti|ar|al|by|re|ve|length|offset):(.*)\]$/i;
+
+function seconds(mm, ss, frac) {
+  // 1-3 fractional digits all appear in the wild: .9 is 900 ms, .90 is 900 ms.
+  return +mm * 60 + +ss + +frac / Math.pow(10, frac.length);
+}
+
+/**
+ * Parse an LRC file, enhanced (word-timed) or plain.
+ *
+ * Plain:     [00:12.34]line of text
+ * Enhanced:  [00:12.34]<00:12.34>line <00:13.90>of text
+ * Several leading tags on one line mean the same text repeats at each time.
+ * `[offset:+/-ms]` shifts every timestamp, per the LRC spec.
+ *
+ * Each line gets `{ t, text, words? }`. `words` is present when the file carries
+ * inline marks, with one entry per timed fragment, so karaoke can follow the
+ * voice instead of assuming a constant reading speed.
+ */
 export function parseLrc(path) {
-  const lines = [];
-  for (const raw of fs.readFileSync(path, 'utf8').split(/\r?\n/)) {
-    // Timestamps are [mm:ss.xx]. Lyric editors write anywhere from one to three
-    // fractional digits, so accept all of them and scale by magnitude.
-    const m = raw.trim().match(/^\[(\d{1,3}):(\d{2})\.(\d{1,3})\](.*)$/);
-    if (m) {
-      const frac = +m[3] / Math.pow(10, m[3].length);
-      lines.push({ t: +m[1] * 60 + +m[2] + frac, text: m[4].trim() });
+  const raw = fs.readFileSync(path, 'utf8');
+  const rows = [];
+  let offsetMs = 0;
+
+  for (const line of raw.split(/\r?\n/)) {
+    const s0 = line.trim();
+    if (!s0) continue;
+
+    const meta = s0.match(META_TAG);
+    if (meta) {
+      if (meta[1].toLowerCase() === 'offset') offsetMs = parseInt(meta[2], 10) || 0;
+      continue;
+    }
+
+    // all leading [mm:ss.xx] tags
+    const times = [];
+    let rest = s0;
+    for (;;) {
+      TIME_TAG.lastIndex = 0;
+      const m = TIME_TAG.exec(rest);
+      if (!m) break;
+      times.push(seconds(m[1], m[2], m[3]));
+      rest = rest.slice(m[0].length);
+    }
+
+    // inline <mm:ss.xx> word marks, if any
+    const marks = [];
+    INLINE_TAG.lastIndex = 0;
+    let mm;
+    while ((mm = INLINE_TAG.exec(rest))) {
+      marks.push({ at: mm.index, after: mm.index + mm[0].length, t: seconds(mm[1], mm[2], mm[3]) });
+    }
+
+    let text = rest;
+    let words = null;
+    if (marks.length) {
+      words = [];
+      for (let i = 0; i < marks.length; i++) {
+        const from = marks[i].after;
+        const to = i + 1 < marks.length ? marks[i + 1].at : rest.length;
+        const chunk = rest.slice(from, to);
+        if (chunk) words.push({ t: marks[i].t, text: chunk });
+      }
+      text = words.map((w) => w.text).join('');
+      // a file with only inline marks still needs a line start
+      if (!times.length && words.length) times.push(words[0].t);
+    }
+
+    text = text.replace(INLINE_TAG, '').trim();
+    if (!text || !times.length) continue;
+
+    for (const t of times) {
+      rows.push({ t, text, words: words ? words.map((w) => ({ t: w.t, text: w.text })) : null });
     }
   }
-  return lines.sort((a, b) => a.t - b.t);
+
+  const shift = -offsetMs / 1000;
+  for (const r of rows) {
+    r.t += shift;
+    if (r.words) for (const w of r.words) w.t += shift;
+  }
+  rows.sort((a, b) => a.t - b.t);
+  return rows;
 }
 
 export class Lyrics {
