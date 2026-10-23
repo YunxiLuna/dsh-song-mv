@@ -38,6 +38,50 @@ const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
 
 export const ELEMENT_KINDS = ['rect', 'ellipse', 'line', 'poly', 'arc', 'text', 'dots', 'band', 'blob', 'grid'];
 
+// A keyframe track is how an element *acts* rather than jitters:
+//
+//   "keys": [
+//     { "at": 0.0, "x": 0.5, "y": 0.62, "r": 0 },
+//     { "at": 2.4, "x": 0.38, "y": 0.60, "r": -0.06, "ease": "inOut" },
+//     { "at": 6.0, "x": 0.30, "y": 0.58, "r": -0.09 }
+//   ]
+//
+// `at` is seconds into the shot; every other field is absolute (x and y are
+// frame fractions). Missing fields fall back to the element's resting value, so
+// a track can animate one property and leave the rest alone.
+const KEY_FIELDS = ['x', 'y', 's', 'r', 'a'];
+
+function keyAt(el, localT) {
+  const keys = el.keys;
+  if (!Array.isArray(keys) || keys.length === 0) return null;
+  const k0 = keys[0];
+  if (localT <= (k0.at ?? 0)) return k0;
+  for (let i = 0; i < keys.length - 1; i++) {
+    const a = keys[i], b = keys[i + 1];
+    if (localT <= (b.at ?? 0)) {
+      const span = Math.max(0.001, (b.at ?? 0) - (a.at ?? 0));
+      const k = clamp01((localT - (a.at ?? 0)) / span);
+      const e = (EASE[b.ease] ?? EASE.inOut)(k);
+      const out = {};
+      const resting = {
+        x: el.at?.[0] ?? 0.5,
+        y: el.at?.[1] ?? 0.5,
+        s: el.scale ?? 1,
+        r: el.rotate ?? 0,
+        a: el.alpha ?? 1,
+      };
+      for (const f of KEY_FIELDS) {
+        const va = a[f] ?? resting[f];
+        const vb = b[f] ?? va;
+        if (va == null) continue;
+        out[f] = va + (vb - va) * e;
+      }
+      return out;
+    }
+  }
+  return keys[keys.length - 1];
+}
+
 // ---------------------------------------------------------------------------
 // colour
 
@@ -57,7 +101,12 @@ function frameOf(el, W, H) {
   const fy = (v) => (u ? v : v * H);
   const at = el.at ?? [0.5, 0.5];
   const size = el.size ?? [0.2, 0.2];
-  return { x: fx(at[0]), y: fy(at[1]), w: fx(size[0]), h: fy(size[1]) };
+  const w = fx(size[0]);
+  let h = fy(size[1]);
+  // `round: true` makes the box square in *pixels*, which is what a circle or a
+  // clock face needs: a fraction of the frame is not a circle on a 16:9 canvas.
+  if (el.round) h = w;
+  return { x: fx(at[0]), y: fy(at[1]), w, h };
 }
 
 // ---------------------------------------------------------------------------
@@ -87,7 +136,7 @@ export function motionAt(el, tv, start, f) {
   const travX = travel[0] * (m.travelEase ? (EASE[m.travelEase] ?? EASE.inOut)(p) : p);
   const travY = travel[1] * (m.travelEase ? (EASE[m.travelEase] ?? EASE.inOut)(p) : p);
 
-  const spin = (m.spin ?? 0) * (tv - t0);
+  let spin = (m.spin ?? 0) * (tv - t0);
   const bob = (m.bob ?? 0) * Math.sin((tv - t0) * (m.bobHz ?? 0.6) * Math.PI * 2);
   const sink = m.sink ? clamp01((tv - t0 - (m.sinkAt ?? 0.6) * dur) / (dur * 0.3)) : 0;
 
@@ -96,13 +145,24 @@ export function motionAt(el, tv, start, f) {
   const onset = (f.onsetPulse ?? 0) * (react.onset ?? 0);
   const pulse = beat + bar + onset;
 
-  const alphaIn = m.fade === false ? 1 : a;
+  let alphaIn = m.fade === false ? 1 : a;
+  let scaleK = m.scale ?? 1;
   const fadeOut = m.out ? clamp01((tv - t0 - (m.outAt ?? 0.8) * dur) / (dur * 0.2)) : 0;
+
+  const key = keyAt(el, tv - start);
+  if (key) {
+    // a track is authoritative for what it touches; pulses still ride on top
+    if (key.a != null) alphaIn = key.a;
+    if (key.r != null) spin = key.r;
+    if (key.s != null) scaleK = key.s;
+  }
 
   return {
     offX, offY, travX, travY, spin, bob, sink, pulse,
+    keyX: key?.x ?? null,
+    keyY: key?.y ?? null,
     alpha: clamp01(alphaIn * (1 - fadeOut)),
-    scale: (m.scale ?? 1) * (1 + pulse) * (1 - sink * (m.sinkScale ?? 0.25)),
+    scale: scaleK * (1 + pulse) * (1 - sink * (m.sinkScale ?? 0.25)),
   };
 }
 
@@ -260,6 +320,120 @@ const DRAW = {
 };
 
 // ---------------------------------------------------------------------------
+// events
+//
+// Elements say what is in the frame. Events say what *happens* in it: a hit, a
+// sweep of light, a burst of dust, a wipe that clears half the picture. They are
+// timed relative to the shot start and can snap to beats.
+//
+//   "events": [
+//     { "at": 1.2, "type": "shake", "amount": 10, "dur": 0.35 },
+//     { "at": 2.0, "type": "flash", "role": "accentHot", "alpha": 0.4, "dur": 0.5 },
+//     { "at": 3.4, "type": "ring", "at2": [0.5, 0.6], "r": 0.4, "dur": 1.2 }
+//   ]
+export const EVENT_TYPES = ['shake', 'flash', 'ring', 'wipe', 'burst', 'sweep', 'punch'];
+
+function eventK(ev, localT) {
+  const dur = ev.dur ?? 0.6;
+  return clamp01((localT - (ev.at ?? 0)) / dur);
+}
+
+/** Deterministic pseudo-random in [0,1) — the same frame everywhere. */
+const rnd = (i, salt = 0) => ((Math.sin(i * 127.1 + salt * 311.7) * 43758.5453) % 1 + 1) % 1;
+
+/** Geometric events that move or tint everything: call before drawing the layers. */
+export function eventsBegin(g, p, events, localT, W, H) {
+  if (!Array.isArray(events)) return { dx: 0, dy: 0, scale: 1 };
+  let dx = 0, dy = 0, scale = 1;
+  for (const ev of events) {
+    const k = eventK(ev, localT);
+    if (k <= 0 || k >= 1) continue;
+    if (ev.type === 'shake') {
+      const a = (ev.amount ?? 10) * (1 - k);
+      dx += Math.sin(k * 62) * a;
+      dy += Math.cos(k * 47) * a * 0.6;
+    } else if (ev.type === 'punch') {
+      scale *= 1 + (ev.amount ?? 0.03) * (1 - k);
+    }
+  }
+  if (dx || dy) g.translate(dx, dy);
+  if (scale !== 1) {
+    g.translate(W / 2, H / 2);
+    g.scale(scale, scale);
+    g.translate(-W / 2, -H / 2);
+  }
+  return { dx, dy, scale };
+}
+
+/** Tint/additive events: call after the layers, still inside the camera. */
+export function eventsEnd(g, p, events, localT, W, H) {
+  if (!Array.isArray(events)) return;
+  for (const ev of events) {
+    const k = eventK(ev, localT);
+    if (k <= 0 || k >= 1) continue;
+    const ease = EASE.out(k);
+    const fade = 1 - ease;
+    const tint = (role, a) => (ROLES.includes(role ?? '') ? p[role] : role ?? p.accentHot);
+
+    if (ev.type === 'flash') {
+      g.save();
+      g.globalCompositeOperation = 'lighter';
+      g.fillStyle = hexA(tint(ev.role, p.accentHot), (ev.alpha ?? 0.35) * fade);
+      g.fillRect(0, 0, W, H);
+      g.restore();
+    } else if (ev.type === 'ring') {
+      const [cx, cy] = ev.at2 ?? ev.pos ?? [0.5, 0.5];
+      const r = (ev.r ?? 0.3) * W * ease;
+      g.save();
+      g.strokeStyle = hexA(tint(ev.role), (ev.alpha ?? 0.5) * fade);
+      g.lineWidth = (ev.lw ?? 4) * (1 - ease * 0.6);
+      g.beginPath();
+      g.arc(cx * W, cy * H, r, 0, Math.PI * 2);
+      g.stroke();
+      g.restore();
+    } else if (ev.type === 'wipe') {
+      const dir = ev.dir === 'down' ? 'down' : ev.dir === 'up' ? 'up' : 'right';
+      const span = (dir === 'right' ? W : H) * (1 - ease);
+      g.save();
+      const grd = dir === 'right'
+        ? g.createLinearGradient(span - 120, 0, span + 40, 0)
+        : g.createLinearGradient(0, dir === 'down' ? span - 120 : 0, 0, dir === 'down' ? span + 40 : H);
+      grd.addColorStop(0, hexA(tint(ev.role), 0));
+      grd.addColorStop(0.7, hexA(tint(ev.role), (ev.alpha ?? 0.5) * fade));
+      grd.addColorStop(1, hexA(tint(ev.role), 0));
+      g.fillStyle = grd;
+      g.fillRect(0, 0, W, H);
+      g.restore();
+    } else if (ev.type === 'burst') {
+      const [cx, cy] = ev.at2 ?? [0.5, 0.5];
+      const n = ev.n ?? 26;
+      g.save();
+      g.fillStyle = hexA(tint(ev.role), (ev.alpha ?? 0.7) * fade);
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2 + rnd(i, 3) * 0.5;
+        const d = ease * (ev.reach ?? 0.45) * W * (0.5 + rnd(i, 7));
+        const rr = (ev.dot ?? 4) * (0.5 + rnd(i, 11)) * fade;
+        g.beginPath();
+        g.ellipse(cx * W + Math.cos(a) * d, cy * H + Math.sin(a) * d * 0.7, rr, rr, 0, 0, Math.PI * 2);
+        g.fill();
+      }
+      g.restore();
+    } else if (ev.type === 'sweep') {
+      const x = (-0.3 + 1.6 * ease) * W;
+      g.save();
+      g.globalCompositeOperation = 'lighter';
+      const grd = g.createLinearGradient(x - 260, 0, x + 260, H);
+      grd.addColorStop(0, hexA(tint(ev.role), 0));
+      grd.addColorStop(0.5, hexA(tint(ev.role), (ev.alpha ?? 0.22) * fade));
+      grd.addColorStop(1, hexA(tint(ev.role), 0));
+      g.fillStyle = grd;
+      g.fillRect(0, 0, W, H);
+      g.restore();
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // the layer
 
 /** Draw a back-to-front list of elements. `tv` is the song time. */
@@ -286,12 +460,14 @@ export function drawElements(g, p, elements, tv, f, opts = {}) {
     const fr = frameOf(el, W, H);
     const mo = motionAt(el, tv, start, f);
 
+    // a keyframe track overrides the resting position; otherwise the element
+    // sits at `at` and the enter/travel offsets apply on top
+    const baseX = mo.keyX != null ? mo.keyX * W : fr.x + (mo.offX + mo.travX) * W;
+    const baseY = mo.keyY != null ? mo.keyY * H : fr.y + (mo.offY + mo.travY) * H + mo.bob + mo.sink * 60;
+
     g.save();
     g.globalAlpha = clamp01((el.alpha ?? 1) * mo.alpha);
-    g.translate(
-      fr.x + (mo.offX + mo.travX) * W + par.x,
-      fr.y + (mo.offY + mo.travY) * H + par.y + mo.bob + mo.sink * 60,
-    );
+    g.translate(baseX + par.x, baseY + par.y);
     g.rotate((el.rotate ?? 0) + mo.spin);
     if (mo.scale !== 1) g.scale(mo.scale, mo.scale);
     if (el.blend) g.globalCompositeOperation = el.blend;

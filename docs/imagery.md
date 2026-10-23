@@ -21,6 +21,74 @@ invented and written down as data.
 No JavaScript. The shot is one JSON object, and the fields below are the whole
 language.
 
+## Motion has three levels, cheapest first
+
+A still frame with drifting particles is not a shot. Between "in the frame" and
+"moving" there are three rungs, and most shots need the top one:
+
+| level | field | reads as | use for |
+|---|---|---|---|
+| drift | `motion.bob` / `dots` | idle shimmer | texture only — never the main subject |
+| one-shot | `motion.enter` / `travel` / `sink` | something arrives, crosses, leaves | entrances, exits, a boat crossing |
+| **keyframes** | `keys` | **an object acts** | doors opening, a clock's hands, a card being knocked away |
+
+### keys — the element as a performer
+
+```json
+{ "kind": "rect", "at": [0.37, 0.5], "size": [0.26, 0.62], "fill": "panel",
+  "stroke": "line", "lw": 4, "depth": 0.6,
+  "keys": [
+    { "at": 0.0, "x": 0.37 },
+    { "at": 8.0, "x": 0.37 },
+    { "at": 9.2, "x": 0.24, "ease": "inOut" },
+    { "at": 17.0, "x": 0.24 },
+    { "at": 18.4, "x": 0.37 }
+  ] }
+```
+
+`at` inside a key is **seconds into the shot**. Every other field is absolute and
+optional: `x`, `y` (frame fractions), `s` (scale), `r` (radians), `a` (alpha).
+A property not named in a key falls back to the element's resting value, so a
+track can animate one thing and leave the rest alone. Two keys that share a
+value hold the element still — that is how you write a pause.
+
+`ease` on a key describes the segment that *ends* there: `linear`, `out`,
+`inOut`, `back`.
+
+### events — what happens to the frame
+
+Elements say what is in the picture. Events say what it does:
+
+```json
+"events": [
+  { "at": 0.9, "type": "shake", "amount": 7, "dur": 0.4 },
+  { "at": 0.9, "type": "flash", "role": "accentHot", "alpha": 0.22, "dur": 0.5 },
+  { "at": 3.2, "type": "ring",  "at2": [0.5, 0.56], "r": 0.28, "dur": 1.1 },
+  { "at": 9.2, "type": "sweep", "alpha": 0.3, "dur": 1.1 },
+  { "at": 12.0, "type": "burst", "at2": [0.5, 0.56], "n": 22, "reach": 0.2 }
+]
+```
+
+| type | does |
+|---|---|
+| `shake` | jolts the whole frame; `amount` in px, decays over `dur` |
+| `punch` | scale pop around the frame centre |
+| `flash` | additive tint over everything |
+| `ring` | expanding stroked circle from `at2` |
+| `wipe` | a soft band travelling across, revealing |
+| `sweep` | a diagonal light band; the cheapest "camera move" |
+| `burst` | dust/sparks radially outward from `at2` |
+
+Times are seconds into the shot. Put a shake on the beat the object is struck,
+not on the cut, and never stack two shakes closer than 0.6 s — it reads as a
+broken encoder rather than as force.
+
+### round: true
+
+An `ellipse` with `size: [0.2, 0.2]` is an oval, because fractions of a 16:9
+canvas are not square. For circles — clock faces, bowls, moons — add
+`"round": true` and the box becomes square in pixels.
+
 ## The ten verbs
 
 | kind | reads as | main fields |

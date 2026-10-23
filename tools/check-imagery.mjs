@@ -36,9 +36,13 @@ const DEPTHS = (els) => {
   const near = d.filter((v) => v > 0.7).length;
   return { back, mid, near };
 };
-const EVENTS = (els) => {
-  let n = 0;
+// "Does something happen" is counted from three sources: a keyframe track on an
+// element (the strongest signal), a one-shot motion on an element, and a
+// shot-level event (shake, flash, ring, sweep, burst, wipe).
+const EVENTS = (els, shotEvents) => {
+  let n = Array.isArray(shotEvents) ? shotEvents.length : 0;
   for (const e of els) {
+    if (Array.isArray(e.keys) && e.keys.length >= 2) { n++; continue; }
     const m = e.motion ?? {};
     if (m.enter) n++;
     if (m.travel) n++;
@@ -65,7 +69,7 @@ for (const [i, shot] of (sb.shots ?? []).entries()) {
   const d = DEPTHS(els);
   const planes = [d.back, d.mid, d.near].filter((v) => v > 0).length;
   const hor = HORIZON(els);
-  const ev = EVENTS(els);
+  const ev = EVENTS(els, shot.scene?.params?.events);
 
   const problems = [];
   if (els.length < minElements) problems.push(`only ${els.length} elements (want ≥ ${minElements})`);

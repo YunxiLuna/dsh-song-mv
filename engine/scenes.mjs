@@ -8,7 +8,7 @@ import {
   cityTowers, eraserCursor, kitchen, floorplanErase, blackHole,
   albumWindow, logOutDialog, cursorTo,
 } from './story_fx.mjs';
-import { drawElements } from './elements.mjs';
+import { drawElements, eventsBegin, eventsEnd } from './elements.mjs';
 import {
   slam, bounce, wall, sliced, onPath, decode, burst, karaoke,
 } from './lyric_fx.mjs';
@@ -1332,6 +1332,10 @@ export function designed(ctx, tv, f, P = { start: 0 }) {
   const dur = P.dur ?? Math.max(1, (P.end ?? s + 18) - s);
   const cam = ctx.cam ?? { depth: () => ({ x: 0, y: 0 }) };
 
+  // Events can move the whole frame (shake, punch); they wrap everything.
+  g.save();
+  eventsBegin(g, p, P.events, t0, 1920, 1080);
+
   // base wash
   const wash = g.createLinearGradient(0, 0, 0, 1080);
   wash.addColorStop(0, hexA(p.panel, 1));
@@ -1381,6 +1385,9 @@ export function designed(ctx, tv, f, P = { start: 0 }) {
   if (P.elements) {
     drawElements(g, p, P.elements, tv, f, { width: 1920, height: 1080, start: s, cam });
   }
+
+  eventsEnd(g, p, P.events, t0, 1920, 1080);
+  g.restore();
 
   // type
   if (P.run) {
