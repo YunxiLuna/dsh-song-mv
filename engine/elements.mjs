@@ -233,15 +233,53 @@ function drawArc(g, p, el, fr) {
 function drawText(g, p, el, fr) {
   const size = el.size ?? 64;           // text always uses pixels
   const weight = el.weight ?? 800;
+  const track = el.track ?? 0;          // letter-spacing in px, for signage
   const family = el.font === 'mono' ? 'ui-monospace, monospace'
     : el.font === 'sans' ? 'system-ui, sans-serif'
       : '"Impact","Arial Black",system-ui,sans-serif';
   g.font = `${weight} ${size}px ${family}`;
   g.textAlign = el.align ?? 'center';
   g.textBaseline = 'middle';
-  g.fillStyle = paint(p, el.fill, 'text');
   const lines = String(el.text ?? '').split('\n');
-  lines.forEach((L, i) => g.fillText(L, 0, (i - (lines.length - 1) / 2) * size * 1.22));
+  const width = Math.max(...lines.map((L) => g.measureText(L).width + track * Math.max(0, L.length - 1)));
+  const lh = size * (el.leading ?? 1.22);
+
+  // A plate turns a string into a sign, a label or a card. Without one, text on
+  // a busy frame is unreadable, which is why most frames should carry one.
+  if (el.plate) {
+    const padX = el.pad?.[0] ?? size * 0.7;
+    const padY = el.pad?.[1] ?? size * 0.5;
+    const w = width + padX * 2;
+    const h = lh * lines.length + padY * 2;
+    const r = el.radius ?? Math.min(14, size * 0.18);
+    g.fillStyle = paint(p, el.plate, 'panel');
+    g.beginPath();
+    if (r > 0.5 && g.roundRect) g.roundRect(-w / 2, -h / 2, w, h, r);
+    else g.rect(-w / 2, -h / 2, w, h);
+    g.fill();
+    if (el.plateStroke) {
+      g.strokeStyle = paint(p, el.plateStroke, 'line');
+      g.lineWidth = el.lw ?? 2;
+      g.stroke();
+    }
+  }
+
+  g.fillStyle = paint(p, el.fill, 'text');
+  lines.forEach((L, i) => {
+    const y = (i - (lines.length - 1) / 2) * lh;
+    if (!track) { g.fillText(L, 0, y); return; }
+    // manual tracking: canvas has no letterSpacing everywhere
+    const chars = [...L];
+    const total = g.measureText(L).width + track * Math.max(0, chars.length - 1);
+    let x = g.textAlign === 'center' ? -total / 2 : g.textAlign === 'right' ? -total : 0;
+    const prevAlign = g.textAlign;
+    g.textAlign = 'left';
+    for (const c of chars) {
+      g.fillText(c, x, y);
+      x += g.measureText(c).width + track;
+    }
+    g.textAlign = prevAlign;
+  });
 }
 
 function drawDots(g, p, el, fr, tv) {

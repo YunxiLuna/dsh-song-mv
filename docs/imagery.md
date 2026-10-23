@@ -89,6 +89,37 @@ An `ellipse` with `size: [0.2, 0.2]` is an oval, because fractions of a 16:9
 canvas are not square. For circles — clock faces, bowls, moons — add
 `"round": true` and the box becomes square in pixels.
 
+## Label the frame
+
+A picture of two rectangles closing is not a subway door. A picture of two
+rectangles with a station sign, a "mind the gap" line and a clock reading 07:42
+is. Text is not decoration — it is how a viewer knows *what they are looking at*
+and *when it is happening*.
+
+Rules that keep a frame readable:
+
+- **Every shot carries at least one piece of in-world text**: a sign, a ticket,
+  a screen, a label, a timestamp. `check-imagery` fails the shot without one.
+- **Put text on a plate** (`"plate": "raised"`, `"plateStroke": "line"`). Text
+  over texture is noise; text on a plate is signage.
+- **Name things, don't describe them.** 人民广场 / 2号线 · 往徐泾东 / 请勿靠近车门
+  — not "a subway". 喜宴 · 十月三日 · 老地方 — not "a card".
+- **Two or three labels per shot is right.** One label reads as a sticker on an
+  empty frame; six reads as a dashboard.
+- **Time stamps place the story**: `07:42 早高峰`, `23:59`, `02:13 · 第 7 杯`.
+- A prop on its own has no meaning; a prop **plus its label plus one companion
+  prop** does. A cup is a cup; a cup with a "半糖 · 去冰" sleeve, a saucer and a
+  timestamp is someone's seventh coffee at 2 a.m.
+
+```json
+{ "kind": "text", "at": [0.5, 0.2], "size": 34, "weight": 800, "track": 6,
+  "text": "人 民 广 场", "fill": "text",
+  "plate": "raised", "plateStroke": "line", "pad": [40, 16], "depth": 0.35 }
+```
+
+`track` is letter-spacing in px (signage needs it), `pad` `[x, y]` is the plate's
+padding, `leading` overrides line height.
+
 ## The ten verbs
 
 | kind | reads as | main fields |

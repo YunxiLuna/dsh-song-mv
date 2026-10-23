@@ -76,6 +76,13 @@ for (const [i, shot] of (sb.shots ?? []).entries()) {
   if (planes < 3) problems.push(`depth planes: ${planes}/3`);
   if (!hor) problems.push('no horizon (line/band/grid)');
   if (ev < 2) problems.push(`${ev} motion event(s) (want ≥ 2)`);
+  // A frame with no in-world text is a diagram: nobody can tell a door from a
+  // card from a screen. Signs, labels, tickets and timestamps are how a viewer
+  // reads what they are looking at.
+  const labels = els.filter((e) => e.kind === 'text' && String(e.text ?? '').trim().length > 0);
+  if (labels.length === 0) problems.push('no in-world text (a sign, label or timestamp)');
+  const plated = labels.filter((e) => e.plate);
+  if (labels.length > 0 && plated.length === 0) problems.push('text with no plate — unreadable over texture');
   if (errors.length) problems.push(`${errors.length} invalid element(s)`);
   if (problems.length) failed++;
 
