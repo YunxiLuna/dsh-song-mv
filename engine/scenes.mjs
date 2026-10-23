@@ -8,10 +8,11 @@ import {
   cityTowers, eraserCursor, kitchen, floorplanErase, blackHole,
   albumWindow, logOutDialog, cursorTo,
 } from './story_fx.mjs';
-import { drawElements, eventsBegin, eventsEnd } from './elements.mjs';
+import { drawElements, drawElementsBand, eventsBegin, eventsEnd } from './elements.mjs';
 import {
   slam, bounce, wall, sliced, onPath, decode, burst, karaoke,
 } from './lyric_fx.mjs';
+import { createCanvas } from 'canvas';
 import { mulberry32 } from './prng.mjs';
 import { ease, rampE, decay, bob } from './motion.mjs';
 import { PROPS, actors as asActors, drawActor } from './actors.mjs';
@@ -1324,6 +1325,72 @@ function karaokeLine(g, text, x, y, tv, t0, { size = 92, dim, hot, accent, font 
  *   near[]      near plane         (parallax 0.95)
  *   lyricStyle / lyricY / lyricSize / caption / still / run / glitch
  */
+
+// ---------------------------------------------------------------------------
+// Defocus. Three depth bands are rendered to their own surfaces and blurred by
+// distance from the shot's focus depth, which is how a flat pile of shapes turns
+// into a frame with air in front of and behind the subject.
+// A downscale/upscale pair is the cheapest honest blur available here.
+const BAND_W = 1920;
+const BAND_H = 1080;
+let bandBuf = null;
+
+function bandSurfaces() {
+  if (!bandBuf) {
+    const mk = () => {
+      const c = createCanvas(BAND_W, BAND_H);
+      return { c, g: c.getContext('2d') };
+    };
+    bandBuf = { layers: [mk(), mk(), mk()], small: mk() };
+  }
+  return bandBuf;
+}
+
+function compositeBlurred(dst, src, px, alpha = 1) {
+  if (px < 0.7) {
+    dst.globalAlpha = alpha;
+    dst.drawImage(src, 0, 0);
+    dst.globalAlpha = 1;
+    return;
+  }
+  const { g: sg, c: sc } = bandSurfaces().small;
+  // one downscale step of about `px` gives a box blur of roughly that radius
+  const k = Math.max(2, Math.round(px * 1.6));
+  const sw = Math.max(4, Math.round(BAND_W / k));
+  const sh = Math.max(4, Math.round(BAND_H / k));
+  sc.width = sw; sc.height = sh;
+  sg.clearRect(0, 0, sw, sh);
+  sg.imageSmoothingEnabled = true;
+  sg.drawImage(src, 0, 0, sw, sh);
+  dst.globalAlpha = alpha;
+  dst.imageSmoothingEnabled = true;
+  dst.drawImage(sc, 0, 0, BAND_W, BAND_H);
+  dst.globalAlpha = 1;
+}
+
+function focusAt(t0, P) {
+  const keys = P.focusKeys;
+  if (Array.isArray(keys) && keys.length) {
+    const sorted = keys.slice().sort((a, b) => (a.at ?? 0) - (b.at ?? 0));
+    if (t0 <= (sorted[0].at ?? 0)) return sorted[0].d ?? 0.6;
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const a = sorted[i];
+      const b2 = sorted[i + 1];
+      if (t0 >= (a.at ?? 0) && t0 <= (b2.at ?? 0)) {
+        const span = Math.max(0.001, (b2.at ?? 0) - (a.at ?? 0));
+        const k = clamp01((t0 - (a.at ?? 0)) / span);
+        return (a.d ?? 0.6) + ((b2.d ?? 0.6) - (a.d ?? 0.6)) * easeInOut(k);
+      }
+    }
+    return sorted[sorted.length - 1].d ?? 0.6;
+  }
+  return P.focus ?? 0.6;
+}
+
+function easeInOut(k) {
+  return k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+}
+
 export function designed(ctx, tv, f, P = { start: 0 }) {
   const p = ctx.pal, g = ctx.g;
   ctx.clear();
@@ -1390,7 +1457,7 @@ export function designed(ctx, tv, f, P = { start: 0 }) {
       const d = ins.dur ?? 1.4;
       if (t0 >= a && t0 <= a + d) {
         const edge = Math.min(t0 - a, a + d - t0);
-        insertK = Math.min(1, edge / 0.22);
+        insertK = Math.min(1, edge / 0.06);
         focus = ins.focus ?? [0.5, 0.5];
       }
     }
@@ -1410,7 +1477,42 @@ export function designed(ctx, tv, f, P = { start: 0 }) {
   // with a depth and a motion. This is the lane an agent uses for imagery the
   // prop library has never heard of.
   if (P.elements) {
-    drawElements(g, p, P.elements, tv, f, { width: 1920, height: 1080, start: s, cam });
+    const focusD = focusAt(t0, P);
+    const maxBlur = P.dof ?? 10;
+    // Defocus is a property of an element's depth, not of a fixed slab: group the
+    // layer into blur buckets, then composite the buckets back in depth order.
+    // Sharp elements are drawn straight onto the frame so text stays crisp.
+    const buckets = new Map();
+    for (const el of P.elements) {
+      const d = el.depth ?? 0.5;
+      const px = Math.min(maxBlur, Math.abs(d - focusD) * maxBlur * 1.6);
+      const b = px < 1.2 ? 0 : Math.min(maxBlur, Math.max(2, Math.round(px)));
+      if (!buckets.has(b)) buckets.set(b, []);
+      buckets.get(b).push(el);
+    }
+    const ordered = [...buckets.entries()].sort((a, b2) => {
+      const mean = (list) => list.reduce((acc, e2) => acc + (e2.depth ?? 0.5), 0) / list.length;
+      return mean(a[1]) - mean(b2[1]);
+    });
+    if (ordered.length === 1 && ordered[0][0] === 0) {
+      drawElementsBand(g, p, P.elements, tv, f, { width: 1920, height: 1080, start: s, cam, order: 'depth' });
+    } else {
+      const { layers, small } = bandSurfaces();
+      let li = 0;
+      for (const [blurPx, list] of ordered) {
+        if (blurPx === 0) {
+          drawElementsBand(g, p, list, tv, f, { width: 1920, height: 1080, start: s, cam, order: 'depth' });
+          continue;
+        }
+        const slot = layers[li % layers.length];
+        li++;
+        slot.g.setTransform(1, 0, 0, 1, 0, 0);
+        slot.g.clearRect(0, 0, BAND_W, BAND_H);
+        drawElementsBand(slot.g, p, list, tv, f, { width: BAND_W, height: BAND_H, start: s, cam, order: 'depth' });
+        compositeBlurred(g, slot.c, blurPx);
+      }
+      void small;
+    }
   }
   g.restore();
 

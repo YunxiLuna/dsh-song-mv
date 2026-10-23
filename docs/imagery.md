@@ -120,6 +120,31 @@ Rules that keep a frame readable:
 `track` is letter-spacing in px (signage needs it), `pad` `[x, y]` is the plate's
 padding, `leading` overrides line height.
 
+## Depth, focus and inserts
+
+A pile of shapes becomes a frame when three things are true: there is air behind
+the subject, the subject is the only sharp thing, and something moves in the
+foreground.
+
+- **`depth`** places an element between the camera (1.0) and the horizon (0.0).
+  It drives parallax, defocus and painter's order, so it must be set on
+  everything.
+- **`focus`** (or **`focusKeys`**) is the depth that stays sharp.
+  `focusKeys: [{ "at": 0, "d": 0.85 }, { "at": 8.5, "d": 0.25 }]` is a rack
+  focus: the screen is sharp, then the phone behind it is. That single gesture
+  does more for the film feeling than any filter.
+- **`dof`** caps the blur in output pixels. 6-10 reads as a long lens; more and
+  the background turns to soup.
+- **`atmosphere`** washes the furthest band toward the background colour; 0.1-0.15
+  is enough.
+- **`inserts`** cut to a detail inside a long shot:
+  `inserts: [{ "at": 9.5, "dur": 3.4, "focus": [0.5, 0.62] }]` punches in about
+  `insertZoom` (default 1.7) around that point with hard edges, because a cut is
+  not a zoom.
+
+A shot with neither a camera move nor a foreground element in motion will look
+like a slide. `check-motion` fails it.
+
 ## Frame check
 
 song-mv check-frame --storyboard <file> --features <file> renders three frames

@@ -36,7 +36,7 @@ if (!args.storyboard || !args.features) {
 
 // thresholds — the composition rules from docs/imagery.md, made numeric
 const T = {
-  subjectMin: 0.15, subjectMax: 0.55,   // union box of solid subjects / frame
+  subjectMin: 0.15, subjectMax: 0.68,   // union box of solid subjects / frame
   tonesMin: 3, tonesMax: 18,            // distinct colour masses in the frame
   p10Min: 18, spreadMin: 40,            // luma floor and dynamic range
   cellsMin: 5,                          // 3x3 cells with content

@@ -666,3 +666,22 @@ export function validateElements(elements, where = 'elements') {
   });
   return errors;
 }
+
+
+/**
+ * Draw the subset of `elements` whose depth falls in [lo, hi), sorted near-last
+ * so the painter's order is the picture's order. Used by the banded path in
+ * `designed()`: three depth bands, each rendered to its own surface so it can be
+ * defocused independently.
+ */
+export function drawElementsBand(g, p, elements, tv, f, opts = {}) {
+  const { lo = 0, hi = 1, width = 1920, height = 1080, start = 0, cam = null, order = 'depth' } = opts;
+  const band = elements.filter((el) => {
+    const d = el.depth ?? 0.5;
+    return d >= lo && d < hi;
+  });
+  if (order === 'depth') band.sort((a, b) => (a.depth ?? 0.5) - (b.depth ?? 0.5));
+  drawElements(g, p, band, tv, f, { ...opts, width, height, start, cam });
+  return band.length;
+}
+

@@ -39,8 +39,12 @@ const DEPTHS = (els) => {
 // "Does something happen" is counted from three sources: a keyframe track on an
 // element (the strongest signal), a one-shot motion on an element, and a
 // shot-level event (shake, flash, ring, sweep, burst, wipe).
-const EVENTS = (els, shotEvents) => {
+const EVENTS = (els, shotEvents, shot) => {
   let n = Array.isArray(shotEvents) ? shotEvents.length : 0;
+  // A camera move or an insert is motion in the film sense even when nothing
+  // inside the frame travels.
+  if (shot?.camera && shot.camera !== 'none') n++;
+  if (Array.isArray(shot?.scene?.params?.inserts)) n += shot.scene.params.inserts.length;
   for (const e of els) {
     if (Array.isArray(e.keys) && e.keys.length >= 2) { n++; continue; }
     const m = e.motion ?? {};
@@ -69,7 +73,7 @@ for (const [i, shot] of (sb.shots ?? []).entries()) {
   const d = DEPTHS(els);
   const planes = [d.back, d.mid, d.near].filter((v) => v > 0).length;
   const hor = HORIZON(els);
-  const ev = EVENTS(els, shot.scene?.params?.events);
+  const ev = EVENTS(els, shot.scene?.params?.events, shot);
 
   const problems = [];
   if (els.length < minElements) problems.push(`only ${els.length} elements (want ≥ ${minElements})`);
