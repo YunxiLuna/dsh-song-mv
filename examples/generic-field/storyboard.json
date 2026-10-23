@@ -1,0 +1,136 @@
+{
+  "title": "Generic field demo",
+  "look": "paper",
+  "duration": 54.0,
+  "lyricsFile": "../synthetic-demo/lyrics.lrc",
+  "shots": [
+    {
+      "id": "01_window",
+      "start": 0,
+      "end": 10.5,
+      "palette": "still",
+      "enter": "dissolve",
+      "scene": {
+        "type": "field",
+        "params": {
+          "layer": "paper",
+          "folds": 2,
+          "motif": "window",
+          "motifAt": [1180, 470, 190],
+          "lyricY": 900,
+          "caption": "6 shots, 5 layers, 1 look"
+        }
+      }
+    },
+    {
+      "id": "02_boat",
+      "start": 10.5,
+      "end": 14.5,
+      "palette": "tender",
+      "paletteFrom": "still",
+      "enter": "dissolve",
+      "scene": {
+        "type": "field",
+        "params": {
+          "layer": "paper",
+          "folds": 3,
+          "motif": "boat",
+          "motifAt": [960, 520, 240],
+          "lyricY": 900
+        }
+      }
+    },
+    {
+      "id": "03_rain",
+      "start": 14.5,
+      "end": 22.5,
+      "palette": "intense",
+      "paletteFrom": "tender",
+      "enter": "glitch",
+      "loud": true,
+      "scene": {
+        "type": "field",
+        "params": {
+          "layer": "rain",
+          "density": 240,
+          "motif": "lantern",
+          "motifAt": [1420, 430, 130],
+          "lyricY": 890
+        }
+      }
+    },
+    {
+      "id": "04_type",
+      "start": 22.5,
+      "end": 30.5,
+      "palette": "release",
+      "paletteFrom": "intense",
+      "enter": "cut",
+      "scene": {
+        "type": "typeOnly",
+        "params": {
+          "layout": "column",
+          "size": 92,
+          "kicker": "chorus"
+        }
+      }
+    },
+    {
+      "id": "05_water",
+      "start": 30.5,
+      "end": 40.5,
+      "palette": "build",
+      "paletteFrom": "release",
+      "enter": "dissolve",
+      "scene": {
+        "type": "field",
+        "params": {
+          "layer": "water",
+          "horizon": 640,
+          "motif": "boat",
+          "motifAt": [980, 600, 180],
+          "motifX": 980,
+          "lyricY": 880,
+          "caption": "the layer takes the look's colour"
+        }
+      }
+    },
+    {
+      "id": "06_ink",
+      "start": 40.5,
+      "end": 44.5,
+      "palette": "peak",
+      "paletteFrom": "build",
+      "enter": "glitch",
+      "loud": true,
+      "scene": {
+        "type": "field",
+        "params": {
+          "layer": "ink",
+          "motif": "chair",
+          "motifAt": [960, 560, 200],
+          "r": 300,
+          "lyricY": 880
+        }
+      }
+    },
+    {
+      "id": "07_outro",
+      "start": 44.5,
+      "end": 54.0,
+      "palette": "dawn",
+      "paletteFrom": "peak",
+      "enter": "dissolve",
+      "scene": {
+        "type": "field",
+        "params": {
+          "layer": "motes",
+          "motif": "boat",
+          "motifAt": [960, 620, 200],
+          "lyricY": 900,
+          "still": "Generic field demo"
+        }
+      }
+    }
+  ]
+}

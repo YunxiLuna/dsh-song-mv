@@ -12,6 +12,10 @@ import {
   slam, bounce, wall, sliced, onPath, decode, burst, karaoke,
 } from './lyric_fx.mjs';
 import { mulberry32 } from './prng.mjs';
+import {
+  grainField, foldCreases, waterSurface, rainField, driftMotes, inkBleed,
+  threadLines, lightShaft, paperBoat, litWindow, moonDisc, lantern, emptyChair, birdLine,
+} from './primitive_fx.mjs';
 
 function clamp(x, lo = 0, hi = 1) { return Math.max(lo, Math.min(hi, x)); }
 function pulse(since, decay) { return Math.exp(-decay * Math.max(0, since)); }
@@ -959,7 +963,222 @@ export function logout(ctx, tv, f, P = { start: 0 }) {
 // pure: (ctx, tv, f, P) with no module-level state.
 function lyricsOf(ctx) { return ctx.lyr || { activeAt: () => ({ cur: null }) }; }
 
-export const SCENES = { keyboard, desk, stampScene, emptyScene, call110, erase, voidScene, kitchenScene, logout };
+/**
+ * Scene `field` — a background made of primitives, one motif, and the lyrics.
+ *
+ * This is the scene you reach for when the song is not about an office. It does
+ * not know what the song is about; it only knows texture (paper/water/rain/…)
+ * and, optionally, one object. Everything else comes from `params`.
+ *
+ * Params (all optional):
+ *   layer    paper | water | rain | snow | ink | motes | thread | window
+ *   motif    boat | window | moon | lantern | chair | birds
+ *   motifAt  [x, y, size]
+ *   folds    number of fold creases (paper layer)
+ *   horizon  water horizon line, px from top (water layer)
+ *   density  streak count (rain layer)
+ *   lyricY / lyricX / lyricSize   where the line lands
+ *   still    a string to hold on screen when no lyric is active
+ *   caption  small mono caption, bottom left
+ */
+export function field(ctx, tv, f, P = { 'start': 0.0 }) {
+  const p = ctx.pal, g = ctx.g;
+  ctx.clear();
+  const t0 = tv - P.start;
+  const float = Math.sin(t0 * 0.6);
+
+  const wash = g.createLinearGradient(0, 0, 0, 1080);
+  wash.addColorStop(0, hexA(p.panel, 1));
+  wash.addColorStop(1, hexA(p.bg, 1));
+  g.fillStyle = wash;
+  g.fillRect(0, 0, 1920, 1080);
+
+  const layer = P.layer ?? 'paper';
+  if (layer === 'paper') {
+    grainField(g, p, tv, f, { alpha: 0.2 });
+    foldCreases(g, p, tv, f, { n: P.folds ?? 3, alpha: 0.45 });
+  } else if (layer === 'water') {
+    waterSurface(g, p, tv, f, { horizon: P.horizon ?? 600, reflectX: P.motifX ?? 960 });
+    if (P.rain) rainField(g, p, tv, f, { density: 90, alpha: 0.22 });
+    grainField(g, p, tv, f, { alpha: 0.07 });
+  } else if (layer === 'rain') {
+    grainField(g, p, tv, f, { alpha: 0.12 });
+    rainField(g, p, tv, f, { density: P.density ?? 200, alpha: 0.42 });
+  } else if (layer === 'snow') {
+    driftMotes(g, p, tv, f, { n: 170, size: 2.6, alpha: 0.65, rise: 40 });
+  } else if (layer === 'ink') {
+    inkBleed(g, p, tv, f, { x: P.motifAt?.[0] ?? 960, y: P.motifAt?.[1] ?? 430, r: P.r ?? 260 });
+    grainField(g, p, tv, f, { alpha: 0.14 });
+  } else if (layer === 'motes') {
+    lightShaft(g, p, P.shaftX ?? 760, -80, 540, 1200, { alpha: 0.16 });
+    driftMotes(g, p, tv, f, { n: 130, alpha: 0.55 });
+  } else if (layer === 'thread') {
+    threadLines(g, p, tv, f, { n: P.threads ?? 16 });
+    driftMotes(g, p, tv, f, { n: 40, alpha: 0.35 });
+  } else if (layer === 'window') {
+    // Looking out through a rain-covered pane: the room is implied by the frame.
+    grainField(g, p, tv, f, { alpha: 0.1 });
+    const [wx, wy, ww, wh] = P.pane ?? [120, 96, 1680, 886];
+    litWindow(g, p, wx, wy, ww, wh, { warm: false });
+    g.save();
+    g.beginPath();
+    g.rect(wx + 6, wy + 6, ww - 12, wh - 12);
+    g.clip();
+    rainField(g, p, tv, f, { density: P.density ?? 170, alpha: 0.3 });
+    if (P.moon) moonDisc(g, p, wx + ww * 0.74, wy + wh * 0.28, ww * 0.045, { phase: 0.45 });
+    g.restore();
+  }
+
+  if (P.run && P.run.length) {
+    // a thin line of type running along the frame, like a thought
+    g.font = `500 20px ${MONO}`;
+    g.fillStyle = hexA(p.mute, 0.7);
+    g.textAlign = 'left';
+    g.textBaseline = 'middle';
+    g.fillText(P.run, 96, 132);
+  }
+
+  const motif = P.motif;
+  if (motif) {
+    const [mx, my, ms] = P.motifAt ?? [960, 560, 220];
+    const bob = float * 6;
+    if (motif === 'boat') paperBoat(g, p, mx, my + bob, ms, { rot: -0.04 + float * 0.03 });
+    else if (motif === 'window') litWindow(g, p, mx - ms * 1.6, my - ms * 1.1, ms * 3.2, ms * 2.2);
+    else if (motif === 'moon') moonDisc(g, p, mx, my + bob * 0.4, ms * 0.55, { phase: P.phase ?? 0.15 });
+    else if (motif === 'lantern') lantern(g, p, mx, my + bob, ms * 0.6, { sway: float * 0.03 });
+    else if (motif === 'chair') emptyChair(g, p, mx, my + bob, ms * 1.4, { rot: -0.02 });
+    else if (motif === 'birds') birdLine(g, p, mx, my, ms * 2.4, { t: tv, flyAway: P.flyAway ?? 0 });
+  }
+
+  const { cur } = lyricsOf(ctx).activeAt(tv);
+  const size = P.lyricSize ?? 92;
+  const y = P.lyricY ?? 880;
+  const x = P.lyricX ?? 960;
+  if (cur && tv - cur.t < 8) {
+    kinetic(g, cur.text, x, y, tv, cur.t, {
+      size, color: p.text, hot: p.accentHot, ghost: p.accent,
+      step: 0.16, settle: 0.32, font: WORD,
+    });
+  } else if (P.still) {
+    g.font = `700 ${size}px ${WORD}`;
+    g.fillStyle = hexA(p.mute, 0.55);
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(P.still, x, y);
+  }
+
+  if (P.caption) {
+    g.font = `500 22px ${MONO}`;
+    g.fillStyle = hexA(p.sub, 0.8);
+    g.textAlign = 'left';
+    g.textBaseline = 'middle';
+    g.fillText(P.caption, 96, 1006);
+  }
+
+  // Opt-in: slicing through a settled lyric line usually reads as a decode
+  // error rather than as energy, so `field` stays clean unless asked.
+  if (P.glitch && f.onsetPulse > 0.55) glitchSlices(g, f, tv);
+}
+
+/**
+ * Scene `typeOnly` — the lyrics are the picture. No props at all.
+ *
+ * Use it when the song's best image is a sentence: the chorus, the last line,
+ * the thing you do not want to illustrate.
+ *
+ * Params:
+ *   lines    array of strings (defaults to the active lyric)
+ *   layout   stack | column
+ *   align    center | left
+ *   size     type size in px (default 104)
+ *   accent   a word to paint in accentHot
+ *   kicker   small label, top left
+ */
+export function typeOnly(ctx, tv, f, P = { 'start': 0.0 }) {
+  const p = ctx.pal, g = ctx.g;
+  ctx.clear();
+  const { cur } = lyricsOf(ctx).activeAt(tv);
+
+  g.fillStyle = hexA(p.bg, 1);
+  g.fillRect(0, 0, 1920, 1080);
+  if (P.grain !== false) grainField(g, p, tv, f, { alpha: 0.1 });
+
+  const layout = P.layout ?? 'stack';
+  const lines = P.lines ?? (cur ? [cur.text] : []);
+  const size = P.size ?? 104;
+  const leftX = 300;
+
+  if (layout === 'column') {
+    g.strokeStyle = hexA(p.line, 0.55);
+    g.lineWidth = 2;
+    g.beginPath();
+    g.moveTo(leftX - 46, 210);
+    g.lineTo(leftX - 46, 210 + lines.length * size * 1.34);
+    g.stroke();
+  }
+
+  if (P.kicker) {
+    g.font = `600 20px ${MONO}`;
+    g.fillStyle = hexA(p.sub, 0.85);
+    g.textAlign = 'left';
+    g.textBaseline = 'middle';
+    g.fillText(P.kicker, 96, 96);
+  }
+
+  g.textBaseline = 'middle';
+  const total = lines.length;
+  lines.forEach((text, i) => {
+    const appear = (cur ? cur.t : P.start) + i * 0.24;
+    const k = clamp01((tv - appear) / 0.55);
+    if (k <= 0) return;
+    const e = easeOut(k);
+    const dy = (1 - e) * 30;
+
+    let x, y;
+    if (layout === 'column') {
+      x = leftX;
+      y = 210 + size * 0.7 + i * size * 1.34;
+    } else {
+      x = 960;
+      y = 540 + (i - (total - 1) / 2) * size * 1.28;
+    }
+
+    g.globalAlpha = e;
+    g.font = `800 ${size}px ${WORD}`;
+    g.textAlign = layout === 'column' || P.align === 'left' ? 'left' : 'center';
+    g.fillStyle = hexA(p.text, 1);
+
+    if (P.accent) {
+      // one word in the accent colour: split on the first occurrence
+      const word = P.accent;
+      const at = text.toLowerCase().indexOf(word.toLowerCase());
+      if (at >= 0) {
+        const before = text.slice(0, at);
+        const after = text.slice(at + word.length);
+        const wBefore = g.measureText(before).width;
+        const wWord = g.measureText(word).width;
+        const startX = g.textAlign === 'center' ? x - g.measureText(text).width / 2 : x;
+        g.fillText(before, startX, y + dy);
+        g.fillStyle = hexA(p.accentHot, 1);
+        g.fillText(text.slice(at, at + word.length), startX + wBefore, y + dy);
+        g.fillStyle = hexA(p.text, 1);
+        g.fillText(after, startX + wBefore + wWord, y + dy);
+        g.globalAlpha = 1;
+        return;
+      }
+    }
+    g.fillText(text, x, y + dy);
+    g.globalAlpha = 1;
+  });
+}
+
+
+export const SCENES = {
+  // generic: work with any song, driven entirely by params
+  field, typeOnly,
+  // story-specific: drawn for one song about an office at 2 AM
+  keyboard, desk, stampScene, emptyScene, call110, erase, voidScene, kitchenScene, logout,
+};
 
 export const SCENE_META = {
   keyboard: { start: 0.0, end: 13.1, enter: 'dissolve', palette: 'still' },
@@ -971,4 +1190,7 @@ export const SCENE_META = {
   voidScene: { start: 142.3, end: 166.5, enter: 'glitch', palette: 'peak' },
   kitchenScene: { start: 166.5, end: 175.5, enter: 'dissolve', palette: 'dawn' },
   logout: { start: 175.5, end: 181.5, enter: 'cut', palette: 'dawn' },
+  // generic scenes: no built-in timing, no preferred palette
+  field: { start: 0, end: 8, enter: 'dissolve', palette: 'tender' },
+  typeOnly: { start: 0, end: 8, enter: 'cut', palette: 'still' },
 };

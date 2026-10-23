@@ -3,9 +3,13 @@
 **English** · [简体中文](README.zh-CN.md)
 
 Give it a song and an `.lrc` and it draws a beat-synced video, one frame at a
-time, on a canvas. The backgrounds are code too: a keyboard at 2 AM, an inbox
-that won't stop, office towers going dark, a phone call, an eraser eating a
-floor plan. Lyrics are drawn as typography rather than parked in a subtitle bar.
+time, on a canvas. Lyrics are typography, not a subtitle bar.
+
+What the video looks like is a decision you make, not a default you inherit.
+A **look** picks the colour world — paper, rain, daylight, ember, mono, or the
+dark neon one — and a small set of **primitives** (grain, folds, water, rain,
+ink, motes, light, and a handful of motifs) builds the imagery that song needs.
+A song about a paper boat gets paper and rain; it does not get an office.
 
 Two ways to run it. As a DSH plugin, so you can just ask your agent for a video.
 Or as a CLI, if you'd rather drive it yourself.
@@ -32,6 +36,32 @@ storyboard format and the synthetic demo.
 
 A frame is a pure function of time. `renderFrame(t)` gives you the same pixels on
 every run, which is why you can change one line, re-render, and diff the two.
+
+## The two decisions
+
+Everything that goes wrong with a generated music video goes wrong here, so the
+skill makes them explicit before any JSON gets written.
+
+**1. The look.** One colour world for the whole film.
+
+| look | world | for songs about |
+|---|---|---|
+| `paper` | warm off-white, ink, folds | memory, letters, tenderness |
+| `rain` | wet blue-grey, cold light | grief, distance, the city at night |
+| `daylight` | bright neutral, clean air | hope, morning, release |
+| `ember` | deep red-brown, low light | anger, heat, obsession |
+| `mono` | black and white | archive, grief held still |
+| `night-shift` | dark blue neon, screens | late-night work, irony, dread |
+
+**2. The imagery.** Five to eight concrete things the viewer will see, each
+traceable to a lyric line. "A paper boat going down a rain gutter" is imagery;
+"sadness" is not. If a section has nothing to show, reread the lyric — do not
+reuse a scene from the last song.
+
+`docs/looks.md` covers the palettes and how to add a world.
+`docs/writing-a-scene.md` walks through writing a 25-line scene when nothing
+shipped fits. The nine office scenes in `examples/nine-shots` are one song's
+props, kept as a worked example — see [the demo note](#a-note-on-the-test-song).
 
 ---
 
@@ -104,8 +134,10 @@ the agent skill on top of these commands.
 node tools/analyze.mjs song.flac --out features.json
 #    tempo 106.67 BPM · 5445 frames · 181.5s
 
-# 2. draft a storyboard; cut points land on bar lines, scenes follow the energy
-node tools/plan.mjs --features features.json --out storyboard.json --shots 9
+# 2. draft a storyboard; cut points land on bar lines, scenes follow the energy.
+#    --look picks the colour world, --scenes generic keeps it song-agnostic
+node tools/plan.mjs --features features.json --out storyboard.json --shots 9 \
+  --look paper --scenes generic
 
 # 3. edit storyboard.json: set lyricsFile, replace the placeholder scene params
 #    with what the song is actually about (see docs/scenes.md)
@@ -147,20 +179,22 @@ metrical levels. If the pulse feels half-speed, that's expected: pass `--bpm`.
   "lyricsFile": "lyrics.lrc",
   "post": { "scan": 0.03 },          // scanlines
   "safety": { "maxFlash": 0.7 },     // clamp on full-frame flashes
+  "look": "paper",                   // the colour world for the whole film
   "shots": [
     {
-      "id": "05_call110",
+      "id": "05_water",
       "start": 95.1, "end": 119.8,
       "palette": "intense",          // still|tender|build|release|intense|peak|dawn|fade
       "enter": "cut",                // cut|dissolve|wipe|glitch
       "loud": true,                  // camera punch on the beat
       "scene": {
-        "type": "call110",
+        "type": "field",
         "params": {
-          "number": "110",
-          "caller": "你好，我需要帮助。",
-          "reply": "请讲，我在听。",
-          "tickerText": "deadline · deadline · nobody answers the mail"
+          "layer": "water",          // paper|water|rain|snow|ink|motes|thread|window
+          "motif": "boat",           // boat|window|moon|lantern|chair|birds
+          "motifAt": [980, 600, 180],
+          "horizon": 640,
+          "lyricY": 880
         }
       }
     }
@@ -172,8 +206,8 @@ A few things worth knowing:
 
 - Shots have to tile the timeline. No gaps, no overlaps, and the last `end` is
   the song duration.
-- `palette` is a mood, not a colour. `still` is a dead office at 2 AM, `peak` is
-  the drop. Scenes read palette fields (`p.accent`, `p.text`, …), so changing the
+- `palette` is a mood, not a colour. The look turns `still`, `peak`, `dawn` into
+  actual values: `peak` is the loudest colour the world owns. Scenes read palette fields (`p.accent`, `p.text`, …), so changing the
   palette recolours everything.
 - `enter` is how a shot comes in. `glitch` is the one for when the beat hits.
 - `params` carry the copy. Every string the demo shows comes from its storyboard,
@@ -241,11 +275,13 @@ render, that's your call and it isn't covered by the MIT licence.
 
 ```
 engine/
-  core.mjs        palettes, Features (beat/onset sampling), Lyrics, canvas ctx, post FX, createEngine
-  scenes.mjs      9 scene functions, each (ctx, tv, f, params)
-  lyric_fx.mjs    lyric treatments: slam / bounce / wall / sliced / karaoke / decode
-  story_fx.mjs    story props: stamp, ticker, phone call, city towers, kitchen, floor plan, black hole
-  prng.mjs        seeded randomness (same seed → same frame)
+  core.mjs         Features (beat/onset sampling), Lyrics, canvas ctx, post FX, createEngine
+  looks.mjs        the six colour worlds; eight states interpolated from four palettes
+  primitive_fx.mjs style-neutral imagery: grain, folds, water, rain, motes, ink, thread, light, motifs
+  scenes.mjs       field + typeOnly (generic), plus the nine office-pack scenes
+  lyric_fx.mjs     lyric treatments: slam / bounce / wall / sliced / karaoke / decode
+  story_fx.mjs     the office pack's props: stamp, ticker, phone call, towers, kitchen, floor plan
+  prng.mjs         seeded randomness (same seed → same frame)
 tools/
   analyze.mjs     ffmpeg decode → WAV → FFT → features.json
   plan.mjs        draft a storyboard from the energy curve
@@ -255,8 +291,8 @@ tools/
   cli.mjs         one entry point for all of the above
   lib/analyze.mjs pure-JS FFT / mel bands / tempo grid (no Python, no librosa)
 skills/song-mv/   the agent-facing workflow
-examples/         storyboards: nine-shots (full arc, placeholder copy), synthetic-demo
-docs/             storyboard schema, scene catalogue, rendering model, demo assets
+examples/         storyboards: generic-field (any song), nine-shots (the office pack), synthetic-demo
+docs/             looks, scene catalogue, scene authoring, storyboard schema, rendering model, demo
 ```
 
 ---

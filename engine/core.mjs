@@ -9,35 +9,24 @@ function clamp(x, lo = 0, hi = 1) { return Math.max(lo, Math.min(hi, x)); }
 function pulse(since, decay) { return Math.exp(-decay * Math.max(0, since)); }
 
 // ---------- Palettes -------------------------------------------------------------
-// Colour is STATE, not decoration: each shot names a state, never raw hex.
-export const PALETTES = {
-  still:   { bg:'#141821', panel:'#1e232f', raised:'#2a3242', line:'#3a4358', text:'#e2e8f2',
-             sub:'#708090', mute:'#4a5468', accent:'#5e6a80', accentHot:'#6e90f8',
-             accentDim:'#4a60d0', glow:0.5, sat:0.9 },
-  tender:  { bg:'#181a26', panel:'#222538', raised:'#303550', line:'#454e6e', text:'#f0eadf',
-             sub:'#9088a0', mute:'#5e5c70', accent:'#b06060', accentHot:'#e09080',
-             accentDim:'#7a4848', glow:0.7, sat:1.0 },
-  build:   { bg:'#1c1c30', panel:'#282650', raised:'#3c3868', line:'#504a80', text:'#f8f0ff',
-             sub:'#a09cc0', mute:'#6e68a0', accent:'#8878ff', accentHot:'#b8a0ff',
-             accentDim:'#6050d0', glow:0.85, sat:1.1 },
-  release: { bg:'#221a38', panel:'#362a58', raised:'#503a75', line:'#7055a0', text:'#ffffff',
-             sub:'#c0b0dd', mute:'#8878b0', accent:'#ff6aa0', accentHot:'#ffa0d0',
-             accentDim:'#c03878', glow:1.15, sat:1.35 },
-  intense: { bg:'#281a40', panel:'#3c2858', raised:'#584080', line:'#8868b0', text:'#fff8f0',
-             sub:'#e0c8dd', mute:'#a878b0', accent:'#ff4870', accentHot:'#ff88b0',
-             accentDim:'#d02850', glow:1.4, sat:1.5 },
-  peak:    { bg:'#2e1e48', panel:'#403058', raised:'#604a80', line:'#9078b8', text:'#ffffff',
-             sub:'#f0d8e8', mute:'#b888b8', accent:'#ffd848', accentHot:'#ffe880',
-             accentDim:'#d89818', glow:1.65, sat:1.6 },
-  dawn:    { bg:'#1a1614', panel:'#262019', raised:'#3a2f22', line:'#54432f', text:'#ffe8cc',
-             sub:'#c0a080', mute:'#7a6450', accent:'#e08a3c', accentHot:'#ffc46a',
-             accentDim:'#a85e22', glow:0.95, sat:1.1 },
-  fade:    { bg:'#0e0e14', panel:'#16161e', raised:'#202030', line:'#2c2c3a', text:'#6a6a78',
-             sub:'#4a4a55', mute:'#383844', accent:'#4a4a5e', accentHot:'#5a5a70',
-             accentDim:'#3a3a48', glow:0.25, sat:0.55 },
-};
+// Colour is STATE, not decoration: a shot names a state (still, peak, …) and the
+// active *look* decides what that state looks like. Swap the look and the whole
+// video changes world without touching a scene.
+import { getLook, LOOKS, DEFAULT_LOOK, LOOK_IDS } from './looks.mjs';
 
-export function pal(state) { return PALETTES[state] || PALETTES.still; }
+let ACTIVE_LOOK = getLook(DEFAULT_LOOK);
+
+/** Switch the colour world. Called by createEngine() from storyboard.look. */
+export function setLook(id) {
+  ACTIVE_LOOK = getLook(id);
+  return ACTIVE_LOOK;
+}
+export function activeLook() { return ACTIVE_LOOK; }
+
+/** Default look's states, kept as an export for scripts that predate looks. */
+export const PALETTES = getLook(DEFAULT_LOOK).states;
+
+export function pal(state) { return ACTIVE_LOOK.states[state] || ACTIVE_LOOK.states.still; }
 
 function hexRgb(h) { return h.match(/^#(..)(..)(..)$/).slice(1).map((v) => parseInt(v, 16)); }
 function mixHex(a, b, k) {
@@ -203,6 +192,17 @@ export class Post2D {
     this.cfg = cfg;
     this.off = createCanvas(canvas.width, canvas.height);
     this.g2 = this.off.getContext('2d');
+    // A 256 px noise tile, repeated. Cheaper than per-pixel work every frame.
+    this.noise = createCanvas(256, 256);
+    const ng = this.noise.getContext('2d');
+    const img = ng.createImageData(256, 256);
+    for (let i = 0; i < img.data.length; i += 4) {
+      const v = Math.random() * 255;
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+      img.data[i + 3] = 255;
+    }
+    ng.putImageData(img, 0, 0);
+    this.noisePattern = this.g2.createPattern(this.noise, 'repeat');
   }
   apply(src, fx) {
     const g = this.g2, c = this.canvas;
@@ -211,16 +211,32 @@ export class Post2D {
     g.clearRect(0, 0, c.width, c.height);
     g.drawImage(src, 0, 0);
 
-    const vg = g.createRadialGradient(c.width / 2, c.height / 2, c.height * 0.45, c.width / 2, c.height / 2, c.height * 0.9);
-    vg.addColorStop(0, 'rgba(0,0,0,0)');
-    vg.addColorStop(1, 'rgba(0,0,0,0.30)');
-    g.fillStyle = vg;
-    g.fillRect(0, 0, c.width, c.height);
+    // Vignette colour comes from the look: black corners would wreck a paper world.
+    const vig = fx.vignette === false ? null
+      : (fx.vignette ?? this.cfg.post?.vignette ?? { color: '#000000', alpha: 0.3 });
+    if (vig) {
+      const vg = g.createRadialGradient(c.width / 2, c.height / 2, c.height * 0.42,
+        c.width / 2, c.height / 2, c.height * 0.92);
+      vg.addColorStop(0, hexA(vig.color, 0));
+      vg.addColorStop(1, hexA(vig.color, vig.alpha));
+      g.fillStyle = vg;
+      g.fillRect(0, 0, c.width, c.height);
+    }
 
     const scan = fx.scan ?? this.cfg.post?.scan ?? 0.03;
     if (scan > 0) {
       g.fillStyle = `rgba(0,0,0,${scan})`;
       for (let y = 0; y < c.height; y += 4) g.fillRect(0, y, c.width, 1);
+    }
+
+    const grain = fx.grain ?? this.cfg.post?.grain ?? 0;
+    if (grain > 0) {
+      g.globalCompositeOperation = 'overlay';
+      g.globalAlpha = grain * 3;
+      g.fillStyle = this.noisePattern;
+      g.fillRect(0, 0, c.width, c.height);
+      g.globalAlpha = 1;
+      g.globalCompositeOperation = 'source-over';
     }
 
     const flash = Math.min(fx.flash ?? 0, this.cfg.safety?.maxFlash ?? 0.7);
@@ -276,6 +292,9 @@ export function createEngine({ cfg, features, storyboard, lrc }) {
   ctx.feats = feats;
   ctx.cfg = cfg;
 
+  // A storyboard names its world; the look supplies palettes and post defaults.
+  const look = setLook(storyboard.look || cfg.look || DEFAULT_LOOK);
+
   const shots = shotsFromStoryboard(storyboard);
 
   if (!shots.length) throw new Error('storyboard has no shots');
@@ -330,12 +349,14 @@ export function createEngine({ cfg, features, storyboard, lrc }) {
     }
 
     post.apply(canvas, {
-      scan: cfg.post?.scan ?? 0.03,
+      scan: cfg.post?.scan ?? look.scan,
+      grain: cfg.post?.grain ?? look.grain,
+      vignette: cfg.post?.vignette ?? look.vignette,
       flash: 0,
       rgbSplit: f.onsetPulse > 0.5 ? f.onsetPulse * 6 : 0,
     });
     return canvas;
   }
 
-  return { canvas, renderFrame, features: feats, lyrics: lyr, shots, duration: feats.duration };
+  return { canvas, renderFrame, features: feats, lyrics: lyr, shots, look, duration: feats.duration };
 }

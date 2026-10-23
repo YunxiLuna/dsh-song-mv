@@ -1,6 +1,6 @@
 # Scene catalogue
 
-Nine scenes ship with the engine. Each is an `export function` in
+Eleven scenes ship with the engine. Each is an `export function` in
 `engine/scenes.mjs` with the signature:
 
 ```js
@@ -8,9 +8,70 @@ scene(ctx, tv, f, P)   // tv = seconds, f = reactive features, P = shot.scene.pa
 ```
 
 Every scene reads its colours from `ctx.pal` and its lyrics from
-`lyricsOf(ctx).activeAt(tv)`, so it re-colours and re-times for free. Defaults
-below are the neutral English fallbacks; the demo overrides them in Chinese via
-`examples/nine-shots/storyboard.json`.
+`lyricsOf(ctx).activeAt(tv)`, so it re-colours and re-times for free.
+
+Two scenes are **generic** — they work for any song and are what `plan` drafts:
+
+- `field` — a textured background, one motif, the lyric
+- `typeOnly` — the lyric as the whole picture
+
+Nine are the **office pack**: the props of one particular song about working late,
+kept as a worked example. Use them when the song is actually about that; see the
+warning below. For anything else, start from the generic pair or write a scene
+(`docs/writing-a-scene.md`).
+
+---
+
+## `field` — texture + motif + lyric
+
+The workhorse. A background made of grains, folds, water, rain, motes, ink or
+threads; optionally one object; the active lyric on top.
+
+```jsonc
+{ "type": "field", "params": {
+  "layer": "water",            // paper | water | rain | snow | ink | motes | thread | window
+  "motif": "boat",             // boat | window | moon | lantern | chair | birds
+  "motifAt": [960, 620, 220],  // x, y, size
+  "horizon": 640,              // water/rain: where the surface starts
+  "density": 220,              // rain: streak count
+  "folds": 3,                  // paper: number of crease lines
+  "lyricY": 900,               // where the line lands (default 880)
+  "still": "…",                // text to hold when no lyric is active
+  "caption": "…"               // small mono caption, bottom left
+}}
+```
+
+Layers are style-neutral: they take their colours from the look, so `water` in
+`paper` is a warm reflection and `water` in `rain` is a cold one.
+
+---
+
+## `typeOnly` — the lyric is the picture
+
+No props. Use it for a chorus you do not want to illustrate, or for the last line
+of a verse that is better read than shown.
+
+```jsonc
+{ "type": "typeOnly", "params": {
+  "layout": "column",   // stack | column
+  "size": 92,
+  "accent": "永远",     // one word painted in accentHot
+  "kicker": "chorus",   // small label, top left
+  "lines": ["…"]        // omit to follow the active lyric
+}}
+```
+
+---
+
+## The office pack
+
+These nine are the props of one song: a late-night office, a deadline, a 110
+hotline, a kitchen at 2 AM. They are here because that film is the reference
+implementation of the engine, not because they are a template. Dropping them onto
+an unrelated song is the failure this engine was built to avoid — the imagery
+will belong to the other song.
+
+Defaults below are the neutral English fallbacks.
 
 ---
 

@@ -2,7 +2,9 @@
 
 **English** · [简体中文](README.zh-CN.md)
 
-给它一首歌和一份 `.lrc`，它逐帧画出踩点的画面。背景也是代码画的：凌晨两点的键盘、停不下来的收件箱、熄灯的写字楼、一通电话、吞掉户型图的橡皮擦。歌词当字体动画来画，而不是塞在底部字幕条里。
+给它一首歌和一份 `.lrc`，它逐帧画出踩点的画面。歌词当字体动画来画，而不是塞在底部字幕条里。
+
+片子长什么样是你定的，不是继承来的默认值。**look（色世界）**决定整片的气质——纸、雨、日光、余烬、黑白，或者那片暗色霓虹；一组**图元**（颗粒、折痕、水面、雨、墨、浮尘、光，外加纸船、窗、月、灯笼、空椅、飞鸟几个母题）搭出这首歌真正需要的画面。唱纸船的歌拿到纸和雨，不会拿到一间办公室。
 
 两种用法：装成 DSH 插件，之后直接在 DSH 里让 agent 出片；或者当命令行用，自己敲。
 
@@ -22,6 +24,25 @@ lyrics.lrc ───────────────────────
 关于那首测试曲：这套引擎是对着一首商业歌曲（我自己在网易云买的）和它的 `.lrc` 调出来的。那首歌的音频、它的歌词、以及由它渲出来的视频都不在本仓库里。这里留下的是引擎、分镜格式和上面那份合成 demo。
 
 一帧就是一个关于时间的纯函数。`renderFrame(t)` 每次跑出来的像素完全一样，所以改一行、重渲、diff 是可行的。
+
+## 两个决定
+
+生成的 MV 出问题，几乎都出在这两步，所以 skill 会强制先把它们写下来，再动手写 JSON。
+
+**一、色世界（look）。** 整片一个。
+
+| look | 世界 | 适合唱什么的歌 |
+|---|---|---|
+| `paper` | 暖白、墨色、折痕 | 记忆、信、不舍 |
+| `rain` | 湿冷的蓝灰、漫射光 | 失去、距离、深夜的城市 |
+| `daylight` | 明亮中性、干净空气 | 希望、清晨、释怀 |
+| `ember` | 深红棕、低照度 | 愤怒、灼烧、执念 |
+| `mono` | 纯黑白 | 档案、克制的悲痛 |
+| `night-shift` | 深蓝霓虹、屏幕 | 深夜加班、反讽、压抑 |
+
+**二、画面清单。** 五到八个具体的东西，每一条都能对应到某句歌词。"纸船顺着雨水沟漂下去"是画面，"悲伤"不是。某一段实在没东西可拍，就回去重读那句词，而不是把上一首歌的场景搬过来。
+
+调色板和新增色世界见 `docs/looks.md`；没有现成场景可放时，怎么写一个 25 行的场景见 `docs/writing-a-scene.md`。`examples/nine-shots` 里那九个办公室场景是某一首歌的道具，留作范例——见[关于那首测试曲](#关于那首测试曲)。
 
 ---
 
@@ -88,7 +109,9 @@ node tools/analyze.mjs song.flac --out features.json
 #    tempo 106.67 BPM · 5445 frames · 181.5s
 
 # 2. 自动起草分镜（切点落在小节线上，场景按能量轮换）
-node tools/plan.mjs --features features.json --out storyboard.json --shots 9
+#    --look 选色世界，--scenes generic 表示不套用任何一首歌专属的场景
+node tools/plan.mjs --features features.json --out storyboard.json --shots 9 \
+  --look paper --scenes generic
 
 # 3. 手改 storyboard.json：填 lyricsFile，把占位参数换成这首歌真正的故事
 #    场景参数见 docs/scenes.md
@@ -128,20 +151,22 @@ node tools/qa.mjs --file out/mv.mp4
   "lyricsFile": "lyrics.lrc",
   "post": { "scan": 0.03 },          // 扫描线
   "safety": { "maxFlash": 0.7 },     // 全屏闪白上限（防光敏）
+  "look": "paper",                   // 整片的色世界
   "shots": [
     {
-      "id": "05_call110",
+      "id": "05_water",
       "start": 95.1, "end": 119.8,
       "palette": "intense",          // still|tender|build|release|intense|peak|dawn|fade
       "enter": "cut",                // cut|dissolve|wipe|glitch
       "loud": true,                  // 踩拍时镜头推一下
       "scene": {
-        "type": "call110",
+        "type": "field",
         "params": {
-          "number": "110",
-          "caller": "你好，我需要帮助。",
-          "reply": "请讲，我在听。",
-          "tickerText": "deadline · deadline · nobody answers the mail"
+          "layer": "water",          // paper|water|rain|snow|ink|motes|thread|window
+          "motif": "boat",           // boat|window|moon|lantern|chair|birds
+          "motifAt": [980, 600, 180],
+          "horizon": 640,
+          "lyricY": 880
         }
       }
     }
@@ -152,9 +177,9 @@ node tools/qa.mjs --file out/mv.mp4
 几条要注意的：
 
 - 镜头要无缝铺满时间轴。不能有空档、不能重叠，最后一个 `end` 等于歌曲时长。
-- `palette` 是情绪状态，不是配色。`still` 是凌晨的空办公室，`peak` 是副歌炸点。场景只读 `p.accent`、`p.text` 这类字段，换调色板等于整体换气。
+- `palette` 是情绪状态，不是配色。look 把 `still`、`peak`、`dawn` 翻译成具体颜色：`peak` 就是这个色世界里最响的那一档。场景只读 `p.accent`、`p.text` 这类字段，换 look 等于整片换气。
 - `enter` 是镜头怎么进来。`glitch` 留给鼓点砸下来的地方。
-- 文案都在 `params` 里。demo 里出现的每一句话都写在它自己的分镜里，不在引擎里。`examples/nine-shots/storyboard.json` 是完整的九镜示例，可以逐行改成你自己的。
+- 文案都在 `params` 里。demo 里出现的每一句话都写在它自己的分镜里，不在引擎里。`examples/generic-field/storyboard.json` 是能用任何歌跑的通用示例；`examples/nine-shots/storyboard.json` 是那首办公室的歌的完整九镜，看结构可以，别照着抄到别的歌上。
 
 完整 schema 见 [docs/storyboard.md](docs/storyboard.md)，场景目录和每个参数见 [docs/scenes.md](docs/scenes.md)。
 

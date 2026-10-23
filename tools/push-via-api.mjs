@@ -75,12 +75,25 @@ async function call(method, endpoint, body) {
   return text ? JSON.parse(text) : null;
 }
 
-const files = execSync('git ls-files', { encoding: 'utf8' })
+// Tracked files plus new ones that are not ignored yet: `git ls-files` alone
+// silently drops a file you have not staged, which is how a "pushed" commit can
+// be missing half its new files.
+const files = execSync('git ls-files --cached --others --exclude-standard', { encoding: 'utf8' })
   .split('\n')
   .map((f) => f.trim())
-  .filter(Boolean);
+  .filter((f) => f && fs.existsSync(f));
 
-console.log(`${files.length} files → ${OWNER}/${REPO}`);
+const untracked = files.filter((f) => {
+  try {
+    execSync(`git ls-files --error-unmatch "${f}"`, { stdio: 'ignore' });
+    return false;
+  } catch {
+    return true;
+  }
+});
+
+console.log(`${files.length} files → ${OWNER}/${REPO}` +
+  (untracked.length ? ` (${untracked.length} of them new)` : ''));
 
 // GitHub answers 409 on a repository with zero commits, so seed one first.
 try {
