@@ -19,7 +19,7 @@
 // shot survives a change of render size. `px` swaps `at`/`size` for pixels when
 // exact type sizes matter (text always uses pixels for `size`).
 
-import { MATERIALS, drawMaterial, shadeElement } from './materials.mjs';
+import { MATERIALS, drawMaterial, shadeElement, formShade } from './materials.mjs';
 import {
   grainField, foldCreases, waterSurface, rainField, driftMotes,
   inkBleed, threadLines, lightShaft, softenVignette,
@@ -192,15 +192,17 @@ function drawRect(g, p, el, fr, mo) {
   if (r > 0.5 && g.roundRect) g.roundRect(-fr.w / 2, -fr.h / 2, fr.w, fr.h, r);
   else g.rect(-fr.w / 2, -fr.h / 2, fr.w, fr.h);
   if (fill) { g.fillStyle = fill; g.fill(); }
+  if (fill && mo?.key) formShade(g, p, el, fr, mo.key);
   if (stroke) { g.strokeStyle = stroke; g.lineWidth = el.lw ?? 3; g.stroke(); }
 }
 
-function drawEllipse(g, p, el, fr) {
+function drawEllipse(g, p, el, fr, mo) {
   const fill = paint(p, el.fill, 'raised');
   const stroke = paint(p, el.stroke, null);
   g.beginPath();
   g.ellipse(0, 0, Math.abs(fr.w) / 2, Math.abs(fr.h) / 2, 0, 0, Math.PI * 2);
   if (fill) { g.fillStyle = fill; g.fill(); }
+  if (fill && mo?.key) formShade(g, p, el, fr, mo.key);
   if (stroke) { g.strokeStyle = stroke; g.lineWidth = el.lw ?? 3; g.stroke(); }
 }
 
@@ -217,7 +219,7 @@ function drawLine(g, p, el, fr) {
   g.stroke();
 }
 
-function drawPoly(g, p, el, fr) {
+function drawPoly(g, p, el, fr, mo) {
   const pts = el.points ?? [];
   if (pts.length < 2) return;
   const fill = paint(p, el.fill, null);
@@ -229,6 +231,7 @@ function drawPoly(g, p, el, fr) {
   });
   if (el.close !== false) g.closePath();
   if (fill) { g.fillStyle = fill; g.fill(); }
+  if (fill && mo?.key) formShade(g, p, el, fr, mo.key);
   if (stroke) { g.strokeStyle = stroke; g.lineWidth = el.lw ?? 3; g.stroke(); }
 }
 
@@ -602,6 +605,7 @@ export function drawElements(g, p, elements, tv, f, opts = {}) {
     const par = cam ? cam.depth(depth) : { x: 0, y: 0 };
     const fr = frameOf(el, W, H);
     const mo = motionAt(el, tv, start, f);
+    mo.key = opts.key ?? null;   // form shading reads the shot key light
 
     // a keyframe track overrides the resting position; otherwise the element
     // sits at `at` and the enter/travel offsets apply on top

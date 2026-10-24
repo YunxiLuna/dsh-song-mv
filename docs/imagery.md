@@ -281,6 +281,27 @@ Two lessons the thresholds encode:
   something dark in it — a phone face down, a laptop edge, a foreground chair —
   or it reads as an empty page.
 
+## Form: giving a flat shape a volume
+
+Every filled shape takes an optional `form`:
+
+| `form` | reads as | use for |
+|---|---|---|
+| `flat` (default) | a printed shape | backgrounds, type plates, diagrams |
+| `box` | a slab with two faces | doors, cards, screens, envelopes, paper |
+| `cyl` | a round body | mugs, poles, bottles, columns |
+| `sphere` | a ball | seals, fruit, lampshades, heads |
+
+```json
+{ "kind": "rect", "at": [0.37, 0.5], "size": [0.26, 0.62],
+  "fill": "raised", "stroke": "line", "lw": 5, "form": "box" }
+```
+
+The shading comes from the shot's `keyLight`, so one light direction shades
+everything consistently. `form` costs one gradient per element and needs no new
+art: adding it to an existing storyboard is the difference between a rectangle
+filled with cream and a door leaf.
+
 ## The ten verbs
 
 | kind | reads as | main fields |

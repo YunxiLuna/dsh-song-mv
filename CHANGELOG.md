@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.16.0
+
+- **`form` on every filled shape**: `box`, `cyl`, `sphere` shade a shape against
+  the shot key light, so a door leaf has two faces and a mug has a round body
+  without any new drawing code.
+- **`cafe` palette rebuilt as a neutral ladder.** The ground was brighter than
+  the props, which is why every frame read flat; day is now a neutral beige and
+  dawn stays warm amber, so day and night are distinguishable.
+
+## 0.16.0
+
+- **orm on every filled shape**: ox, cyl, sphere shade a shape against
+  the shot key light, so a door leaf has two faces and a mug has a round body
+  without any new drawing code.
+- **cafe palette rebuilt as a neutral ladder.** The ground was brighter than
+  the props, which is why every frame read flat; day is now a neutral beige and
+  dawn stays warm amber, so day and night are distinguishable.
+
 ## 0.15.0
 
 - **No more jitter.** handheld defaulted to 1.2 px of *per-frame hash* noise,

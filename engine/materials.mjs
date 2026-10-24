@@ -188,6 +188,71 @@ export function drawMaterial(g, p, el, fr, tv) {
 }
 
 /**
+ * Form shading: give a flat shape a volume by shading it against the shot's key
+ * light. `form` is one of:
+ *
+ *   flat    no shading (default)
+ *   box     a slab: two faces meet at the light direction, plus a lit edge
+ *   cyl     a cylinder (mugs, poles, columns): bright band offset to the light
+ *   sphere  a ball (seals, fruit, lamps): radial gradient centred toward the key
+ *
+ * This is the difference between "a rectangle filled with cream" and "a door
+ * leaf". It costs one gradient per element and no authoring: the same storyboard
+ * gains volume by adding `"form": "box"` to a shape.
+ */
+export function formShade(g, p, el, fr, key) {
+  const form = el.form;
+  if (!form || form === 'flat' || !key || key.strength <= 0) return;
+  const w = Math.abs(fr.w), h = Math.abs(fr.h);
+  const k = Math.min(1, Math.max(0, key.strength));
+  const { dx, dy } = key;
+  const wrap = el.formWrap !== false;
+
+  g.save();
+  g.clip && clipTo(g, el, fr);
+  if (form === 'box') {
+    // Two faces: the one facing away from the key sinks toward the ground
+    // colour, the one facing it lifts. A hard stop at the middle keeps it a
+    // slab rather than a ball.
+    const grd = g.createLinearGradient(-dx * w * 0.5, -dy * h * 0.5, dx * w * 0.5, dy * h * 0.5);
+    grd.addColorStop(0, hexA(p.bg, 0.34 * k));
+    grd.addColorStop(0.5, hexA(p.bg, 0.02 * k));
+    grd.addColorStop(1, hexA(p.bg, 0.26 * k));
+    g.fillStyle = grd;
+    g.fillRect(-w / 2, -h / 2, w, h);
+    // lit rim on the key side
+    if (el.rim !== false) {
+      const rim = g.createLinearGradient(-dx * w * 0.5, -dy * h * 0.5, dx * w * 0.2, dy * h * 0.2);
+      rim.addColorStop(0, hexA(p.raised, 0.5 * k));
+      rim.addColorStop(1, hexA(p.raised, 0));
+      g.strokeStyle = rim;
+      g.lineWidth = Math.max(2, (el.lw ?? 3) * 1.6);
+      g.beginPath();
+      g.rect(-w / 2, -h / 2, w, h);
+      g.stroke();
+    }
+  } else if (form === 'cyl') {
+    const grd = g.createLinearGradient(-w / 2, 0, w / 2, 0);
+    grd.addColorStop(0, hexA(p.bg, 0.3 * k));
+    grd.addColorStop(0.28, hexA(p.raised, 0.22 * k));
+    grd.addColorStop(0.55, hexA(p.bg, 0.02 * k));
+    grd.addColorStop(1, hexA(p.bg, 0.36 * k));
+    g.fillStyle = grd;
+    g.fillRect(-w / 2, -h / 2, w, h);
+  } else if (form === 'sphere') {
+    const cx = -dx * w * 0.28, cy = -dy * h * 0.28;
+    const grd = g.createRadialGradient(cx, cy, 0, cx, cy, Math.max(w, h) * 0.62);
+    grd.addColorStop(0, hexA(p.raised, 0.4 * k));
+    grd.addColorStop(0.6, hexA(p.bg, 0.04 * k));
+    grd.addColorStop(1, hexA(p.bg, 0.42 * k));
+    g.fillStyle = grd;
+    g.fillRect(-w / 2, -h / 2, w, h);
+  }
+  if (!wrap) g.restore();
+  g.restore();
+}
+
+/**
  * Shade an element against a key light: a gradient across its box, bright on
  * the lit side, darker away from it. Call inside the element's transform after
  * the material pass.
