@@ -48,14 +48,18 @@ const sb = JSON.parse(fs.readFileSync(sbPath, 'utf8'));
 const feats = JSON.parse(fs.readFileSync(args.features, 'utf8'));
 await loadUserScenes(sb, sbPath);
 
+// Measure the picture the way it ships: the engine's post is storyboard-driven
+// (render.mjs passes sb.post / sb.look, see engine/core.mjs renderFrame), so the
+// check has to use the same post or it evaluates a different picture than the
+// one that gets encoded.
 const cfg = {
   render: {
     width: sb.render?.width ?? 1920,
     height: sb.render?.height ?? 1080,
     fps: sb.render?.fps ?? 30,
   },
-  post: { scan: 0.02 },
-  safety: { maxFlash: 0.7 },
+  post: sb.post ?? { scan: 0.02 },
+  safety: sb.safety ?? { maxFlash: 0.7 },
 };
 const engine = createEngine({ cfg, features: feats, storyboard: sb, lrc: null });
 const W = cfg.render.width;
@@ -200,7 +204,7 @@ for (const [i, shot] of (sb.shots ?? []).entries()) {
 
   if (box && area < T.subjectMin) problems.push(`subject ${(area * 100).toFixed(0)}% of frame (want ≥ ${T.subjectMin * 100}%) → raise size / lower cameraAmount`);
   if (box && area > T.subjectMax) problems.push(`subject ${(area * 100).toFixed(0)}% (want ≤ ${T.subjectMax * 100}%) → the prop is eating the frame`);
-  if (tones < T.tonesMin) problems.push(`only ${(ink * 100).toFixed(0)}% of pixels differ from the background → the frame is empty`);
+  if (tones < T.tonesMin) problems.push(`only ${tones} colour masses → the frame is too empty → add a texture layer or a second plane`);
   if (tones > T.tonesMax) problems.push(`${tones} colour masses → the frame is noise; cut a layer or unify the palette`);
   // A dawn or night shot is supposed to crush its shadows: hold those to a
   // far lower floor instead of asking every frame for the same exposure.

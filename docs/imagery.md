@@ -302,6 +302,37 @@ everything consistently. `form` costs one gradient per element and needs no new
 art: adding it to an existing storyboard is the difference between a rectangle
 filled with cream and a door leaf.
 
+## Depth: a floor and a backlight
+
+Two fields give a flat vector frame the two things it cannot fake:
+
+**`kind: "plane"`** — a floor in perspective. The element's box is the surface,
+`vp` is the vanishing point in frame fractions, the rails converge on it and the
+rungs bunch up toward the horizon. The far side fades out, so the floor meets the
+wall without a seam.
+
+```json
+{ "kind": "plane", "at": [0.5, 0.93], "size": [1.02, 0.46],
+  "vp": [0.5, 0.5], "rows": 6, "cols": 14,
+  "fill": "panel", "stroke": "line", "lineAlpha": 0.26, "depth": 0.64 }
+```
+
+**`backlight` on the shot** — when the light is behind the subject. Every solid
+element drops 12% in value and, if it declares `rim: true`, its edge catches a
+warm crescent. That is the difference between a lit object and a silhouette, and
+at dawn it is the whole look.
+
+Rules that keep it honest:
+
+- **The floor is one element, not a handful of lines.** Two horizon lines and
+  call it a day looks like graph paper.
+- **Rim only what would catch light**: heads, shoulders, the top edge of a door.
+  A rim on every rectangle reads as neon signage.
+- **Backlight wants a bright ground** — a window, a doorway, a sky. Behind a flat
+  wall it just looks dim.
+- **One light direction per shot.** `keyLight` and `backlight` must agree or the
+  frame reads as two photographs glued together.
+
 ## The ten verbs
 
 | kind | reads as | main fields |
