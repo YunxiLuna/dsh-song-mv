@@ -216,6 +216,41 @@ foreground.
 A shot with neither a camera move nor a foreground element in motion will look
 like a slide. `check-motion` fails it.
 
+## Post: where the film look comes from
+
+Everything above is composition. The last step is the image itself, and that is
+`Post2D` in `engine/core.mjs`. It runs once per frame on a scratch canvas:
+
+| pass | what it does | where to set it |
+|---|---|---|
+| levels | black point, white point, gamma, saturation, warmth through a 256-entry LUT | `look.levels` or `post.levels` |
+| vignette | a radial darkening pulled from the look's own colour | `look.vignette` |
+| scan | one dark line every 4 px | `look.scan` |
+| grain | a noise plate, 'overlay' at `grain * 3` | `look.grain` |
+| flash | a full-frame flash, capped by `safety.maxFlash` | shot `events` |
+
+`levels` is the lever that finally puts a black in a cream world. `black: 0.2`
+means "everything below 20% becomes 0" — without it a palette built from
+`#f3ead9` can only ever produce a 15% tonal range, which is exactly what "flat"
+means.
+
+```js
+// engine/looks.mjs
+cafe: makeLook({ id: 'cafe', /* … */ grain: 0.022,
+                 vignette: { color: '#6b4a2a', alpha: 0.14 },
+                 levels: { black: 0.2, white: 0.98, gamma: 0.92, sat: 1.06, warm: 0.15 } })
+```
+
+Two bugs worth remembering, both found by rendering:
+
+- The composite at the end of `apply()` drew the scratch canvas into **itself**,
+  a no-op, so vignette, scan, grain and levels were invisible for the whole
+  first life of the engine. If a post effect seems to do nothing, check that the
+  result actually reaches the canvas you return.
+- A `createPattern` fill for the grain combined with an `overlay` composite
+  produces raw noise from the second frame onwards in node-canvas. The grain now
+  blits one prepared noise plate the size of the frame, which is also faster.
+
 ## Frame check
 
 song-mv check-frame --storyboard <file> --features <file> renders three frames

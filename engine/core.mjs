@@ -291,24 +291,79 @@ export class Post2D {
     this.cfg = cfg;
     this.off = createCanvas(canvas.width, canvas.height);
     this.g2 = this.off.getContext('2d');
-    // A 256 px noise tile, repeated. Cheaper than per-pixel work every frame.
-    this.noise = createCanvas(256, 256);
+    // One noise plate the size of the frame. A repeated `createPattern` fill
+    // was tried first and is broken in node-canvas: the second frame drawn with
+    // a pattern plus an 'overlay' composite comes out as raw noise. Blitting a
+    // prepared plate sidesteps the pattern path entirely.
+    this.noise = createCanvas(canvas.width, canvas.height);
     const ng = this.noise.getContext('2d');
-    const img = ng.createImageData(256, 256);
+    const img = ng.createImageData(canvas.width, canvas.height);
     for (let i = 0; i < img.data.length; i += 4) {
       const v = Math.random() * 255;
       img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
       img.data[i + 3] = 255;
     }
     ng.putImageData(img, 0, 0);
-    this.noisePattern = this.g2.createPattern(this.noise, 'repeat');
   }
+  /**
+   * Levels: black point, white point, gamma and saturation, through a 256-entry
+   * lookup table. This is the lever that turns a flat vector frame into
+   * something with a black in it — palette tweaks alone could not.
+   */
+  grade(lv) {
+    const key = JSON.stringify(lv);
+    if (!this._lutKey || this._lutKey !== key) {
+      const black = Math.min(0.45, Math.max(0, lv.black ?? 0.12));
+      const white = Math.min(1, Math.max(0.55, lv.white ?? 1));
+      const gamma = lv.gamma ?? 1;
+      const lut = new Uint8ClampedArray(256);
+      const span = Math.max(0.01, white - black);
+      for (let i = 0; i < 256; i++) {
+        const v = Math.min(1, Math.max(0, (i / 255 - black) / span));
+        lut[i] = Math.round(255 * Math.pow(v, gamma));
+      }
+      this._lut = lut;
+      this._lutKey = key;
+    }
+    const sat = lv.sat ?? 1;
+    const c = this.canvas;
+    const g = this.g2;
+    const img = g.getImageData(0, 0, c.width, c.height);
+    const d = img.data;
+    const lut = this._lut;
+    const warm = lv.warm ?? 0;
+    for (let i = 0; i < d.length; i += 4) {
+      let r = lut[d[i]];
+      let gr = lut[d[i + 1]];
+      let b = lut[d[i + 2]];
+      if (sat !== 1) {
+        const y = r * 0.299 + gr * 0.587 + b * 0.114;
+        r = y + (r - y) * sat;
+        gr = y + (gr - y) * sat;
+        b = y + (b - y) * sat;
+      }
+      if (warm) {
+        r += warm * 12;
+        b -= warm * 10;
+      }
+      d[i] = r;
+      d[i + 1] = gr;
+      d[i + 2] = b;
+    }
+    g.putImageData(img, 0, 0);
+  }
+
   apply(src, fx) {
     const g = this.g2, c = this.canvas;
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.globalCompositeOperation = 'source-over';
     g.clearRect(0, 0, c.width, c.height);
     g.drawImage(src, 0, 0);
+
+    // Grades first, then the overlays: vignette and grain should sit on top of
+    // the corrected image, not be corrected themselves.
+    const levels = fx.levels === false ? null : (fx.levels ?? this.cfg.post?.levels);
+    if (levels) this.grade(levels);
 
     // Vignette colour comes from the look: black corners would wreck a paper world.
     const vig = fx.vignette === false ? null
@@ -331,9 +386,8 @@ export class Post2D {
     const grain = fx.grain ?? this.cfg.post?.grain ?? 0;
     if (grain > 0) {
       g.globalCompositeOperation = 'overlay';
-      g.globalAlpha = grain * 3;
-      g.fillStyle = this.noisePattern;
-      g.fillRect(0, 0, c.width, c.height);
+      g.globalAlpha = Math.min(1, grain * 3);
+      g.drawImage(this.noise, 0, 0, c.width, c.height);
       g.globalAlpha = 1;
       g.globalCompositeOperation = 'source-over';
     }
@@ -343,7 +397,14 @@ export class Post2D {
       g.fillStyle = hexA(fx.flashColor ?? '#ffffff', flash);
       g.fillRect(0, 0, c.width, c.height);
     }
-    g.drawImage(this.off, 0, 0, c.width, c.height);
+    // Composite the graded frame back onto the real canvas. Drawing `off`
+    // into its own context (the previous code) is a no-op, which is why every
+    // post effect used to be invisible.
+    const dst = this.canvas.getContext('2d');
+    dst.setTransform(1, 0, 0, 1, 0, 0);
+    dst.globalAlpha = 1;
+    dst.globalCompositeOperation = 'source-over';
+    dst.drawImage(this.off, 0, 0, c.width, c.height);
   }
 }
 
@@ -462,6 +523,7 @@ export function createEngine({ cfg, features, storyboard, lrc }) {
       scan: cfg.post?.scan ?? look.scan,
       grain: cfg.post?.grain ?? look.grain,
       vignette: cfg.post?.vignette ?? look.vignette,
+      levels: cfg.post?.levels ?? look.levels,
       flash: 0,
       rgbSplit: f.onsetPulse > 0.5 ? f.onsetPulse * 6 : 0,
     });
