@@ -20,7 +20,21 @@ If `look` is missing, `night-shift` is used. Pick deliberately: a breakup ballad
 | `ember` | deep red-brown, low light, warm core | grain 0.03 | anger, heat, obsession, slow burn |
 | `mono` | black and white, no hue at all | grain 0.035 | archive, documentary, grief held still |
 | `night-shift` | dark blue neon, screens, scanlines | grain 0.025, scan 0.022 | electronic, late-night work, irony, dread |
-| `cafe` | cream walls, morning light, coffee and caramel | grain 0.022, no scan | ordinary days told warmly, food, small comforts, humour without cruelty |
+| `cafe` | neutral beige by day, amber lamplight by night | grain 0.022, no scan | ordinary days told warmly, food, small comforts, humour without cruelty |
+
+### A ladder, not a colour
+
+The mistake to avoid: making every row of a look the same colour, brighter. A
+look is a **tonal ladder** — ground, mass, recess, line — and the four rows exist
+so that day and night stay distinguishable. `cafe` started as cream on cream with
+`raised` *lighter* than `bg`; every frame came out flat because the props and the
+wall had the same luminance. It now runs neutral beige by day (`calm`/`mid`) and
+amber by night (`dawn`), with the mass always darker than the ground it sits on.
+
+When you add a look, check three numbers before anything else: the luminance of
+`bg`, of `raised`, and of `line`. If `raised` is not at least 12% below `bg`, or
+`line` is not at least 35% below `bg`, the world will read flat no matter how
+much grain and blur you add on top.
 
 Each look is authored as **four** palettes — `calm`, `mid`, `hot`, `dawn` — and the eight emotional
 states are interpolated from them:
