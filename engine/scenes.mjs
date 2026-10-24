@@ -1510,20 +1510,20 @@ export function designed(ctx, tv, f, P = { start: 0 }) {
       return mean(a[1]) - mean(b2[1]);
     });
     if (ordered.length === 1 && ordered[0][0] === 0) {
-      drawElementsBand(g, p, P.elements, tv, f, { width: 1920, height: 1080, start: s, cam, order: 'depth', key });
+      drawElementsBand(g, p, P.elements, tv, f, { width: 1920, height: 1080, start: s, cam, order: 'depth', key, backlight: P.backlight ?? 0 });
     } else {
       const { layers, small } = bandSurfaces();
       let li = 0;
       for (const [blurPx, list] of ordered) {
         if (blurPx === 0) {
-          drawElementsBand(g, p, list, tv, f, { width: 1920, height: 1080, start: s, cam, order: 'depth', key });
+          drawElementsBand(g, p, list, tv, f, { width: 1920, height: 1080, start: s, cam, order: 'depth', key, backlight: P.backlight ?? 0 });
           continue;
         }
         const slot = layers[li % layers.length];
         li++;
         slot.g.setTransform(1, 0, 0, 1, 0, 0);
         slot.g.clearRect(0, 0, BAND_W, BAND_H);
-        drawElementsBand(slot.g, p, list, tv, f, { width: BAND_W, height: BAND_H, start: s, cam, order: 'depth', key });
+        drawElementsBand(slot.g, p, list, tv, f, { width: BAND_W, height: BAND_H, start: s, cam, order: 'depth', key, backlight: P.backlight ?? 0 });
         compositeBlurred(g, slot.c, blurPx);
       }
       void small;

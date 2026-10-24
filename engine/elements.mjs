@@ -50,7 +50,7 @@ const EASE = {
 
 const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
 
-export const ELEMENT_KINDS = ['rect', 'ellipse', 'line', 'poly', 'arc', 'text', 'dots', 'band', 'blob', 'grid', 'figure'];
+export const ELEMENT_KINDS = ['rect', 'ellipse', 'line', 'poly', 'arc', 'text', 'dots', 'band', 'blob', 'grid', 'figure', 'plane'];
 
 // A keyframe track is how an element *acts* rather than jitters:
 //
@@ -474,7 +474,110 @@ function drawFigure(g, p, el, fr, tv) {
   g.restore();
 }
 
+// ---------------------------------------------------------------------------
+// a ground plane, in perspective
+
+/**
+ * Rebuild the outline of a solid element so it can be stroked for rim light.
+ * The shape functions above draw straight into the context, so this repeats the
+ * geometry rather than trying to capture a path.
+ */
+export function traceShape(g, el, fr) {
+  const w = Math.abs(fr.w), h = Math.abs(fr.h);
+  g.beginPath();
+  if (el.kind === 'ellipse') {
+    g.ellipse(0, 0, w / 2, (el.round ? w / 2 : h / 2), 0, 0, Math.PI * 2);
+  } else if (el.kind === 'poly') {
+    const pts = el.points ?? [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]];
+    pts.forEach(([px, py], i) => (i ? g.lineTo(px * w, py * h) : g.moveTo(px * w, py * h)));
+    g.closePath();
+  } else if (el.kind === 'figure') {
+    // a person's rim is a crescent on the lit side of the head plus the top of
+    // the shoulders; tracing the whole silhouette glows like a sticker
+    const H = h || 240;
+    const headR = H * 0.072, headY = -H * 0.42;
+    g.arc(0, headY, headR * 1.04, Math.PI * 0.80, Math.PI * 2.02, false);
+  } else {
+    const r = Math.min(el.radius ?? 0, Math.min(w, h) / 2);
+    if (r > 0.5 && g.roundRect) g.roundRect(-w / 2, -h / 2, w, h, r);
+    else g.rect(-w / 2, -h / 2, w, h);
+  }
+}
+
+/**
+ * Rim light: when the light is behind the subject, its edge glows and its face
+ * goes dark. Drawn with `lighter` so it reads as a highlight, not a border.
+ */
+export function rimLight(g, p, el, fr, strength) {
+  if (!(strength > 0)) return;
+  const role = el.rimRole ?? 'accentHot';
+  const col = p[role] ?? p.accentHot;
+  g.save();
+  g.globalCompositeOperation = 'lighter';
+  g.globalAlpha = Math.min(1, 0.38 * strength);
+  g.strokeStyle = col;
+  g.lineWidth = Math.max(2.5, Math.abs(fr.h || fr.w) * 0.02);
+  traceShape(g, el, fr);
+  g.stroke();
+  g.restore();
+}
+
+/**
+ * A floor, in perspective: a graded surface with lines converging on a vanishing
+ * point and rungs that bunch up toward the horizon. This is the single cheapest
+ * way to give a flat vector frame depth.
+ */
+function drawPlane(g, p, el, fr) {
+  const w = Math.abs(fr.w), h = Math.abs(fr.h);
+  const x0 = -w / 2, y0 = -h / 2;
+  const [vx, vy] = el.vp ?? [0.5, 0];
+  const horizon = (vy - (fr.y - h / 2 / 1080)) * 1080; // in element space
+  const top = -h / 2;
+  const bottom = h / 2;
+
+  const grd = g.createLinearGradient(0, top, 0, bottom);
+  grd.addColorStop(0, hexA(p[el.fill ?? 'panel'], 0));
+  grd.addColorStop(0.18, hexA(p[el.fill ?? 'panel'], (el.alpha ?? 1) * 0.42));
+  grd.addColorStop(1, hexA(p[el.fill ?? 'panel'], (el.alpha ?? 1) * 0.92));
+  g.fillStyle = grd;
+  g.fillRect(x0, y0, w, h);
+
+  if (el.lines !== false) {
+    g.save();
+    g.beginPath();
+    g.rect(x0, y0, w, h);
+    g.clip();
+    g.strokeStyle = hexA(p[el.stroke ?? 'line'], (el.lineAlpha ?? 0.28) * (el.alpha ?? 1));
+    g.lineWidth = el.lw ?? 1.6;
+
+    // receding rails: every column edge runs to the vanishing point
+    const cols = el.cols ?? 9;
+    const vpx = vx * w;
+    const vpy = top + h * 0.10;
+    for (let i = 0; i <= cols; i++) {
+      const x = x0 + (w * i) / cols;
+      g.beginPath();
+      g.moveTo(x, bottom);
+      g.lineTo(vpx + (x - vpx) * 0.08, bottom + (vpy - bottom) * 0.92);
+      g.stroke();
+    }
+
+    // rungs: spacing follows 1/(depth), so they tighten toward the horizon
+    const rows = el.rows ?? 7;
+    for (let j = 1; j <= rows; j++) {
+      const t = Math.pow(j / rows, 1.9);
+      const y = bottom - (bottom - top) * t;
+      g.beginPath();
+      g.moveTo(x0, y);
+      g.lineTo(x0 + w, y);
+      g.stroke();
+    }
+    g.restore();
+  }
+}
+
 const DRAW = {
+  plane: drawPlane,
   rect: drawRect, ellipse: drawEllipse, line: drawLine, poly: drawPoly,
   arc: drawArc, text: drawText, dots: drawDots, band: drawBand, blob: drawBlob, grid: drawGrid,
   figure: drawFigure,
@@ -654,6 +757,14 @@ export function drawElements(g, p, elements, tv, f, opts = {}) {
     if (mo.scale !== 1) g.scale(mo.scale, mo.scale);
     if (el.blend) g.globalCompositeOperation = el.blend;
     fn(g, p, el, fr, tv, f);
+    // a backlit subject: its face falls dark and its edge catches the light
+    if (opts.backlight > 0 && ['rect', 'ellipse', 'poly', 'figure'].includes(kind)) {
+      // the face always drops in value; the edge glow is opt-in per element
+      traceShape(g, el, fr);
+      g.fillStyle = hexA(p.text, 0.12 * opts.backlight);
+      g.fill();
+      if (el.rim === true) rimLight(g, p, el, fr, opts.backlight * (el.rimAmount ?? 1));
+    }
     // texture and light sit on top of the fill but inside the same transform,
     // so a rotated card gets its fibres rotated with it
     if (el.material && el.material !== 'none') drawMaterial(g, p, el, fr, tv);
