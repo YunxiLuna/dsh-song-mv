@@ -4,13 +4,17 @@
 //   node tools/render.mjs --storyboard storyboard.json --features data/features.json \
 //                         --audio song.wav --out out/mv.mp4
 //   node tools/render.mjs ... --sheet 10,40,80,120      # contact sheet instead
+//   node tools/render.mjs ... --workers 1               # single process, for debugging
 //
 // Frames are streamed to ffmpeg over stdin: no PNG intermediates, no temp disk.
+// Rendering is spread over a worker pool by default: every frame is a pure
+// function of song time, so the only ordering that matters is the write order.
 import fs from 'node:fs';
 import path from 'node:path';
 import { createEngine } from '../engine/core.mjs';
 import { createFrameSink, requireFfmpeg, probeDuration } from './lib/ffmpeg.mjs';
 import { loadUserScenes } from './lib/scenes.mjs';
+import { renderWithPool, defaultWorkers } from './lib/pool.mjs';
 
 function parseArgs(argv) {
   const out = { _: [] };
@@ -29,6 +33,7 @@ function parseArgs(argv) {
     else if (a === '--sheet') out.sheet = next();
     else if (a === '--width') out.width = Number(next());
     else if (a === '--height') out.height = Number(next());
+    else if (a === '--workers' || a === '-j') out.workers = Number(next());
     else if (a === '--quiet' || a === '-q') out.quiet = true;
     else out._.push(a);
   }
@@ -117,22 +122,24 @@ const sink = createFrameSink({
 
 const t0 = Date.now();
 let lastLog = 0;
-for (let i = 0; i < total; i++) {
-  const t = start + i / fps;
-  const canvas = engine.renderFrame(t);
-  const ctx = canvas.getContext('2d');
-  const img = ctx.getImageData(0, 0, width, height);
-  await sink.write(Buffer.from(img.data.buffer, img.data.byteOffset, img.data.byteLength));
-  if (!args.quiet) {
+const workers = args.workers ?? defaultWorkers();
+if (!args.quiet) console.log(`  workers: ${workers}`);
+
+await renderWithPool({
+  storyboardPath: path.resolve(args.storyboard),
+  featuresPath: path.resolve(args.features),
+  width, height, fps, start, total, workers,
+  onFrame: (_i, buf) => sink.write(buf),
+  onProgress: (done, all) => {
+    if (args.quiet) return;
     const now = Date.now();
-    if (now - lastLog > 700 || i === total - 1) {
+    if (now - lastLog > 700 || done === all) {
       lastLog = now;
-      const pct = ((i + 1) / total * 100).toFixed(1);
-      const rate = (i + 1) / ((now - t0) / 1000);
-      process.stdout.write(`\r  ${pct}%  frame ${i + 1}/${total}  ${rate.toFixed(1)} fps  t=${t.toFixed(1)}s   `);
+      const rate = done / ((now - t0) / 1000);
+      process.stdout.write(`\r  ${((done / all) * 100).toFixed(1)}%  frame ${done}/${all}  ${rate.toFixed(1)} fps  t=${(start + done / fps).toFixed(1)}s   `);
     }
-  }
-}
+  },
+});
 process.stdout.write('\n');
 await sink.close();
 const secs = (Date.now() - t0) / 1000;

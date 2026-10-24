@@ -1,6 +1,6 @@
 {
   "name": "dsh-song-mv",
-  "version": "0.18.0",
+  "version": "0.19.0",
   "private": false,
   "type": "module",
   "description": "Code-rendered music videos: looks, declarative elements, camera moves, beat-synced lyrics.",

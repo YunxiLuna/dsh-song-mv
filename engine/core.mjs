@@ -298,8 +298,12 @@ export class Post2D {
     this.noise = createCanvas(canvas.width, canvas.height);
     const ng = this.noise.getContext('2d');
     const img = ng.createImageData(canvas.width, canvas.height);
+    // A fixed LCG rather than Math.random(): every process must build the same
+    // plate, or a worker pool gives each frame a different grain.
+    let seed = 0x9e3779b9;
     for (let i = 0; i < img.data.length; i += 4) {
-      const v = Math.random() * 255;
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      const v = seed >>> 24;
       img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
       img.data[i + 3] = 255;
     }
@@ -441,8 +445,24 @@ export function shotsFromStoryboard(storyboard) {
       start: s.start,
       end: s.end,
       palette: s.palette || SCENE_META[type]?.palette || 'still',
-      paletteFrom: s.paletteFrom || null,
-      enter: s.enter || SCENE_META[type]?.enter || 'cut',
+      // A cross-fade only makes sense when the world actually changes colour.
+      // Sub-shots that keep the block's palette used to fade from the previous
+      // one anyway, which dipped the frame at every cut.
+      paletteFrom: (() => {
+        const want = s.paletteFrom || null;
+        if (!want) return null;
+        const prev = shots[shots.length - 1];
+        const prevPal = prev ? prev.palette : want;
+        return prevPal === (s.palette || SCENE_META[type]?.palette || 'still') ? null : want;
+      })(),
+      // A dissolve into the same set and the same palette is a dip to black in
+      // the middle of a scene. Sub-shots that continue the set cut instead.
+      enter: (() => {
+        const want = s.enter || SCENE_META[type]?.enter || 'cut';
+        const prev = shots[shots.length - 1];
+        const same = prev && prev.type === type && prev.palette === (s.palette || SCENE_META[type]?.palette || 'still');
+        return same && want === 'dissolve' ? 'cut' : want;
+      })(),
       loud: s.loud ?? ['stampScene', 'erase', 'voidScene'].includes(type),
       params,
       render: (ctx, tv, f) => SCENES[type](ctx, tv, f, params),
