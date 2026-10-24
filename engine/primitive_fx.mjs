@@ -388,32 +388,66 @@ export function emptyChair(g, p, x, y, size, opts = {}) {
   g.translate(x, y);
   g.rotate(rot);
   g.scale(s, s);
-  g.strokeStyle = hexA(p.text, 0.55);
-  g.lineWidth = 4;
-  g.lineJoin = 'round';
-  // back
-  g.beginPath();
-  g.moveTo(-26, -96); g.lineTo(-26, 8); g.lineTo(26, 8); g.lineTo(26, -96);
-  g.stroke();
-  // seat: a shallow ellipse reads as a plane rather than another line
-  g.beginPath();
-  g.ellipse(2, 10, 34, 9, 0, 0, Math.PI * 2);
-  g.stroke();
-  // legs
-  g.beginPath();
-  g.moveTo(-26, 8); g.lineTo(-30, 92);
-  g.moveTo(26, 8); g.lineTo(30, 92);
-  g.stroke();
-  // shadow under it
-  const sh = g.createRadialGradient(0, 94, 4, 0, 94, 70);
-  sh.addColorStop(0, hexA(p.bg, 0.45));
-  sh.addColorStop(1, hexA(p.bg, 0));
+
+  // Shadow first so the chair sits on the floor rather than floating.
+  const sh = g.createRadialGradient(0, 96, 8, 0, 96, 92);
+  sh.addColorStop(0, hexA(p.shadow ?? p.bg, 0.5));
+  sh.addColorStop(1, hexA(p.shadow ?? p.bg, 0));
   g.fillStyle = sh;
-  g.fillRect(-80, 70, 160, 50);
+  g.beginPath();
+  g.ellipse(0, 94, 86, 18, 0, 0, Math.PI * 2);
+  g.fill();
+
+  g.lineCap = 'round';
+  g.lineJoin = 'round';
+
+  // legs: two front, two back, splayed like a wooden chair
+  g.strokeStyle = hexA(p.line, 0.75);
+  g.lineWidth = 7;
+  g.beginPath();
+  g.moveTo(-30, 8); g.lineTo(-40, 92);
+  g.moveTo(32, 8); g.lineTo(42, 92);
+  g.moveTo(-24, 4); g.lineTo(-22, 86);
+  g.moveTo(26, 4); g.lineTo(24, 86);
+  g.stroke();
+
+  // seat: a filled plane, not another line
+  g.fillStyle = hexA(p.raised, 0.95);
+  g.strokeStyle = hexA(p.line, 0.8);
+  g.lineWidth = 5;
+  g.beginPath();
+  g.ellipse(2, 6, 42, 12, 0, 0, Math.PI * 2);
+  g.fill();
+  g.stroke();
+
+  // back: two posts, two rails, three slats — a chair reads by its back
+  g.beginPath();
+  g.moveTo(-30, 4); g.lineTo(-32, -100);
+  g.moveTo(34, 4); g.lineTo(36, -100);
+  g.stroke();
+  g.beginPath();
+  g.moveTo(-32, -96); g.lineTo(36, -96);
+  g.moveTo(-31, -58); g.lineTo(35, -58);
+  g.stroke();
+  g.lineWidth = 4;
+  g.beginPath();
+  for (let i = 0; i < 3; i++) {
+    const bx = -18 + i * 22;
+    g.moveTo(bx, -94); g.lineTo(bx, -60);
+  }
+  g.stroke();
+
+  // a folded jacket over the back: the empty chair is somebody's absence
+  g.fillStyle = hexA(p.accentDim, 0.5);
+  g.beginPath();
+  g.moveTo(-34, -92); g.quadraticCurveTo(4, -78, 38, -90);
+  g.lineTo(38, -70); g.quadraticCurveTo(2, -58, -34, -70);
+  g.closePath();
+  g.fill();
+
   g.restore();
 }
 
-/** Three birds; the number that flies off depends on the beat. */
 export function birdLine(g, p, x, y, w, opts = {}) {
   const { t = 0, alpha = 1, flyAway = 0 } = opts;
   g.save();

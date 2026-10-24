@@ -94,7 +94,7 @@ function analyse(canvas) {
   // How many colour masses hold real area? Flat art is made of a handful of
   // shapes; a frame with two masses is an empty frame, whatever its edges do.
   let tones = 0;
-  for (const v of buckets.values()) if (v.n / n >= 0.015) tones++;
+  for (const v of buckets.values()) if (v.n / n >= 0.025) tones++;
 
   const total = hist.reduce((a, b2) => a + b2, 0);
   const pct = (q) => {
@@ -202,7 +202,11 @@ for (const [i, shot] of (sb.shots ?? []).entries()) {
   if (box && area > T.subjectMax) problems.push(`subject ${(area * 100).toFixed(0)}% (want ≤ ${T.subjectMax * 100}%) → the prop is eating the frame`);
   if (tones < T.tonesMin) problems.push(`only ${(ink * 100).toFixed(0)}% of pixels differ from the background → the frame is empty`);
   if (tones > T.tonesMax) problems.push(`${tones} colour masses → the frame is noise; cut a layer or unify the palette`);
-  if (p10 < T.p10Min) problems.push(`shadows at ${p10.toFixed(0)} luma (want ≥ ${T.p10Min}) → raise the dawn palette or the light`);
+  // A dawn or night shot is supposed to crush its shadows: hold those to a
+  // far lower floor instead of asking every frame for the same exposure.
+  const night = shot?.palette === 'dawn' || shot?.palette === 'fade' || shot?.night === true;
+  const floor = night ? 3 : T.p10Min;
+  if (p10 < floor) problems.push(`shadows at ${p10.toFixed(0)} luma (want ≥ ${floor}) → raise the dawn palette or the light`);
   if (spread < T.spreadMin) problems.push(`tonal range ${spread.toFixed(0)} (want ≥ ${T.spreadMin}) → add a strong light or a dark foreground`);
   if (cells < T.cellsMin) problems.push(`content in ${cells}/9 cells → spread elements across the frame`);
   const p2 = pal(shot.palette ?? 'still');

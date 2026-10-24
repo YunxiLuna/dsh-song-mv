@@ -33,7 +33,7 @@ scene inherits it, including ones written before this existed** — a new scene 
 
 | field | meaning |
 |---|---|
-| `camera` | `push` `pull` `panL` `panR` `driftUp` `driftDown` `none` |
+| `camera` | `push` `pull` `panL` `panR` `driftUp` `driftDown` `tiltUp` `tiltDown` `rollCW` `rollCCW` `arc` `none` |
 | `cameraAmount` | how far it travels across the shot: 0.03 is a whisper, 0.15 is a lurch |
 | `cameraEase` | `linear` `inQuad` `outCubic` `inOutQuad` `outQuint` — default `inOutQuad` |
 | `focus` | `[x, y]` the move centres on; default the frame centre |
@@ -45,6 +45,12 @@ pre-multiplied by a margin so no background edge can enter frame.
 
 **Vary the move.** Two pushes in a row feel like one long push with a mistake in the middle. A
 workable pattern for a four-section song: `push` → `panR` → `driftDown` → `pull`.
+
+The three later moves exist for when a drift is not enough. `tiltUp` / `tiltDown`
+crane vertically and add a small scale so the top of the set never shows;
+`rollCW` / `rollCCW` are a dutch angle of about two degrees; `arc` pans and drifts
+at once, which reads as the camera walking around the subject. Roll and arc scale
+the frame (1.07, and `1 + amount * 0.9`) to keep the corners covered.
 
 ## Parallax
 

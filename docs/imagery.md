@@ -265,6 +265,10 @@ per shot and measures the picture, not the motion:
 ange | p90 - p10: the tonal range | > 40 |
 | grid | which of the nine 3x3 cells contain something | >= 6 |
 
+Night shots (palette: dawn or ade) are held to a lower shadow floor: a dawn
+frame is *supposed* to crush its blacks. Tone counting is quantised to 3 bits per
+channel so the grain plate does not read as forty colour masses.
+
 Every failure names the field to change. A frame can pass check-imagery
 (composed) and still fail check-frame (empty or muddy) — they answer different
 questions, so run both.

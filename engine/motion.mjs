@@ -84,7 +84,8 @@ export function shake(t, amp = 3, seed = 1) {
  * inherits it — including the ones that were written before this existed.
  *
  * Shot spec (all optional):
- *   camera:  'push' | 'pull' | 'panL' | 'panR' | 'driftUp' | 'driftDown' | 'none'
+ *   camera:  'push' | 'pull' | 'panL' | 'panR' | 'driftUp' | 'driftDown'
+ *          | 'tiltUp' | 'tiltDown' | 'rollCW' | 'rollCCW' | 'arc' | 'none'
  *   cameraAmount: 0.02 .. 0.25   how far it travels over the shot (default 0.09)
  *   cameraEase:  'linear' | 'inOutQuad' | 'outCubic'  (default inOutQuad)
  *   focus: [x, y]                what the move centres on (default frame centre)
@@ -107,13 +108,27 @@ export class Camera {
     const easeFn = ease[shot.cameraEase ?? 'inOutQuad'] ?? ease.inOutQuad;
     const k = easeFn(clamp01(since / dur));
 
-    let scale = 1, x = 0, y = 0;
+    let scale = 1, x = 0, y = 0, roll = 0;
     if (move === 'push') scale = 1 + amount * k;
     else if (move === 'pull') scale = 1 + amount - amount * k;
     else if (move === 'panL') x = (amount * w) * (0.5 - k);
     else if (move === 'panR') x = (amount * w) * (k - 0.5);
     else if (move === 'driftUp') y = (amount * h) * (0.5 - k);
     else if (move === 'driftDown') y = (amount * h) * (k - 0.5);
+    // A tilt is a drift plus a slight scale: craning up without a scale change
+    // leaves the top edge of the set visible.
+    else if (move === 'tiltUp') { y = (amount * h * 0.75) * (0.5 - k); scale = 1 + amount * 0.35 * k; }
+    else if (move === 'tiltDown') { y = (amount * h * 0.75) * (k - 0.5); scale = 1 + amount * 0.35 * (1 - k * 0.5); }
+    // Roll is the dutch angle: a couple of degrees, never more.
+    else if (move === 'rollCW') { roll = (shot.cameraRoll ?? 0.035) * (2 * k - 1); scale = 1.07; }
+    else if (move === 'rollCCW') { roll = -(shot.cameraRoll ?? 0.035) * (2 * k - 1); scale = 1.07; }
+    // Arc: a shallow orbit — pan and drift at the same time, which reads as
+    // the camera walking around the subject.
+    else if (move === 'arc') {
+      x = (amount * w * 0.6) * (k - 0.5);
+      y = (amount * h * 0.35) * (0.5 - Math.sin(k * Math.PI) * 0.5 - k * 0.5);
+      scale = 1 + amount * 0.9;
+    }
 
     // keep the frame covered when panning or scaling
     if (scale !== 1) {
@@ -138,7 +153,7 @@ export class Camera {
     const ox = (cx - fx) * (scale - 1);
     const oy = (cy - fy) * (scale - 1);
 
-    this.state = { scale, x: x + ox + sx, y: y + oy + sy, sx, sy };
+    this.state = { scale, x: x + ox + sx, y: y + oy + sy, sx, sy, roll };
     return this.state;
   }
 
@@ -147,6 +162,7 @@ export class Camera {
     const st = this.sample(shot, t, f);
     g.save();
     g.translate(this.w / 2 + st.x, this.h / 2 + st.y);
+    if (st.roll) g.rotate(st.roll);
     g.scale(st.scale, st.scale);
     g.translate(-this.w / 2, -this.h / 2);
     return st;

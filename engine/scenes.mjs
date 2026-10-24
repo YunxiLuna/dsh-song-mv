@@ -1438,13 +1438,22 @@ export function designed(ctx, tv, f, P = { start: 0 }) {
   }
 
   // three planes of actors
+  // ctors is the documented name for the middle plane; back/near stay
+  // available for explicit parallax. Flat {prop, x, y, size} specs are
+  // normalised to the {prop, at:[x,y,size]} form the choreographer expects.
   const planes = [
     ['back', 0.2, P.back],
-    ['mid', 0.5, P.mid],
+    ['mid', 0.5, P.actors ?? P.mid],
     ['near', 0.95, P.near],
   ];
   for (const [, depth, list] of planes) {
-    for (const a of asActors(list)) {
+    for (const raw of asActors(list)) {
+      // size on a flat spec is a scale (1.1 = 110% of the prop's nominal
+      // size); t:[x,y,size] is in pixels. Numbers under 20 are read as
+      // scales, which is what hand-written storyboards mean by them.
+      const sz = raw.size ?? 1;
+      const px = raw.at ? raw.at[2] : (sz < 20 ? sz * 180 : sz);
+      const a = raw.at ? raw : { ...raw, at: [raw.x ?? 960, raw.y ?? 560, px] };
       drawActor(g, p, a, tv, f, { cam, depth, t0, dur });
     }
   }
@@ -1481,7 +1490,9 @@ export function designed(ctx, tv, f, P = { start: 0 }) {
   // prop library has never heard of.
   if (P.elements) {
     const focusD = focusAt(t0, P);
-    const maxBlur = P.dof ?? 10;
+    // Defocus is opt-in: a storyboard that never mentions dof or ocusKeys
+    // must render razor sharp, or every old film turns to mush.
+    const maxBlur = P.dof ?? (P.focusKeys ? 10 : 0);
     const key = lightVector(P.keyLight);
     // Defocus is a property of an element's depth, not of a fixed slab: group the
     // layer into blur buckets, then composite the buckets back in depth order.
