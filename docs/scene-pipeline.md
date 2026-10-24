@@ -23,7 +23,10 @@ the motion check, rendered by the same engine.
 
 ## Lane 1 — compose with actors
 
-`designed` takes three depth planes and a list of actors per plane. Each actor
+`designed` takes three depth planes and a list of actors per plane — `back[]`,
+`near[]`, and either `actors[]` (the documented name) or `mid[]` for the middle
+plane. A flat actor is `{prop, x, y, size}`, where `size` is a scale of the
+prop's nominal size; `at: [x, y, px]` is the absolute form. Each actor
 is a prop plus its choreography.
 
 ```json

@@ -268,11 +268,17 @@ song-mv render --storyboard storyboard.json --features data/features.json \
 
 | type | what it draws | key params |
 |---|---|---|
-| `designed` | three depth planes of actors, composed per shot | `layer`, `back[]`, `mid[]`, `near[]`, `lyricStyle` |
+| `designed` | three depth planes of actors, composed per shot | `layer`, `actors[]` (= mid), `back[]`, `near[]`, `elements[]`, `lyricStyle` |
 | `field` | layered texture + one travelling motif + the lyric | `layer`, `motif`, `motifAt`, `travel`, `stage`, `lyricStyle`, `still`, `caption` |
 | `typeOnly` | the lyric as the whole picture | `lines[]`, `layout`, `size`, `accent`, `kicker` |
 
 `designed` actors: `boat window moon lantern chair birds grain folds water rain motes ink thread
+
+An actor is `{ "prop": "chair", "x": 960, "y": 620, "size": 1.1 }`. `size` on a
+flat spec is a **scale** (1.1 = 110% of the prop's nominal size); the
+`at: [x, y, pixels]` form is absolute. Actors also take `enter`, `enterDur`,
+`enterFrom` (`below|above|left|right|none`), `travel`, `bob`, `rot`, `sway`,
+`stage` (`sink|return`), `sinkAt`, `react`, `alpha`, `flip`.
 light vignette`, each with `at`, `enter`, `enterFrom`, `travel`, `bob`, `stage`, `sinkAt`, `react`.
 
 ### Office pack (one song's props — see the warning above)
