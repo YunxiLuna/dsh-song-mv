@@ -316,11 +316,18 @@ export class Post2D {
       const black = Math.min(0.45, Math.max(0, lv.black ?? 0.12));
       const white = Math.min(1, Math.max(0.55, lv.white ?? 1));
       const gamma = lv.gamma ?? 1;
+      // `shoulder` compresses the top of the curve: a bright set otherwise
+      // climbs straight to paper white and every prop in it reads as a cutout.
+      const shoulder = Math.max(0, lv.shoulder ?? 0);
+      const lift = Math.max(0, lv.lift ?? 0);
       const lut = new Uint8ClampedArray(256);
       const span = Math.max(0.01, white - black);
       for (let i = 0; i < 256; i++) {
-        const v = Math.min(1, Math.max(0, (i / 255 - black) / span));
-        lut[i] = Math.round(255 * Math.pow(v, gamma));
+        let v = Math.min(1, Math.max(0, (i / 255 - black) / span));
+        v = Math.pow(v, gamma);
+        if (shoulder > 0) v = 1 - Math.pow(1 - v, 1 + shoulder);
+        if (lift > 0) v = v * (1 - lift) + lift * (1 - Math.pow(1 - v, 2));
+        lut[i] = Math.round(255 * Math.min(1, Math.max(0, v)));
       }
       this._lut = lut;
       this._lutKey = key;

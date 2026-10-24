@@ -27,7 +27,7 @@ scene inherits it, including ones written before this existed** — a new scene 
 ```json
 { "id": "03_sink", "start": 43.4, "end": 72.0,
   "camera": "push", "cameraAmount": 0.09, "cameraEase": "inOutQuad",
-  "handheld": 1.4, "focus": [960, 620], "loud": true,
+  "handheld": 0, "focus": [960, 620], "loud": true,
   "scene": { "type": "field", "params": { "...": "..." } } }
 ```
 
@@ -37,7 +37,12 @@ scene inherits it, including ones written before this existed** — a new scene 
 | `cameraAmount` | how far it travels across the shot: 0.03 is a whisper, 0.15 is a lurch |
 | `cameraEase` | `linear` `inQuad` `outCubic` `inOutQuad` `outQuint` — default `inOutQuad` |
 | `focus` | `[x, y]` the move centres on; default the frame centre |
-| `handheld` | px of shake; 0–1 for quiet songs, 2–3 for the peak |
+| `handheld` | px of smooth sway, **off by default**; 0.5–1 for quiet songs, 2–3 for the peak |
+
+`handheld` is opt-in and its noise is smooth, interpolated value noise rather
+than per-frame hash output. Raw per-frame randomness reads as a permanently
+vibrating frame — the whole picture jitters by a pixel on every frame — which is
+a rendering fault, not a camera operator. If a shot wants a hand, ask for it.
 | `loud` | adds a small punch on downbeats on top of the move |
 
 The camera keeps the frame covered: a `push` scales from 1.0 upward, and the pan/drift moves are

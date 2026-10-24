@@ -70,11 +70,29 @@ export function drift(t, amp = 8, hz = 0.13, phase = 0) {
   return Math.sin(t * Math.PI * 2 * hz + phase) * amp + Math.sin(t * Math.PI * 2 * hz * 2.7 + phase) * amp * 0.25;
 }
 
-/** Deterministic pseudo-noise for handheld shake. */
-export function shake(t, amp = 3, seed = 1) {
-  const s = Math.sin(t * 12.9898 + seed * 78.233) * 43758.5453;
-  const s2 = Math.sin(t * 7.1234 + seed * 21.37) * 24634.6345;
-  return [((s - Math.floor(s)) - 0.5) * 2 * amp, ((s2 - Math.floor(s2)) - 0.5) * 2 * amp];
+/**
+ * Smooth value noise in one dimension: hashed lattice points, smoothstep
+ * between them. `shake` used raw hash output first, which changes every frame
+ * and reads as a permanently vibrating frame rather than a hand holding the
+ * camera.
+ */
+function valueNoise(t, seed) {
+  const x = Math.floor(t);
+  const f = t - x;
+  const h = (i) => {
+    const v = Math.sin((i + seed * 37.7) * 12.9898) * 43758.5453;
+    return v - Math.floor(v);
+  };
+  const a = h(x), b = h(x + 1);
+  const u = f * f * (3 - 2 * f);
+  return a + (b - a) * u;
+}
+
+/** Deterministic, *smooth* handheld sway. Rate is in lattice points per second. */
+export function shake(t, amp = 3, seed = 1, rate = 1.6) {
+  const x = valueNoise(t * rate, seed) - 0.5;
+  const y = valueNoise(t * rate + 11.3, seed + 5.1) - 0.5;
+  return [x * 2 * amp, y * 2 * amp];
 }
 
 // ---------------------------------------------------------------- camera ----
@@ -89,7 +107,7 @@ export function shake(t, amp = 3, seed = 1) {
  *   cameraAmount: 0.02 .. 0.25   how far it travels over the shot (default 0.09)
  *   cameraEase:  'linear' | 'inOutQuad' | 'outCubic'  (default inOutQuad)
  *   focus: [x, y]                what the move centres on (default frame centre)
- *   handheld: 0 .. 6             px of shake (default 1.2)
+ *   handheld: 0 .. 6             px of smooth sway (default 0 — opt in)
  */
 export class Camera {
   constructor(width = 1920, height = 1080) {
@@ -144,8 +162,10 @@ export class Camera {
       scale *= 1 + p * 0.035;
     }
 
-    const amp = shot.handheld ?? 1.2;
-    const [sx, sy] = amp > 0 ? shake(t, amp, 3) : [0, 0];
+    // Off unless a shot asks for it: any constant sway on a locked-off frame
+    // reads as a rendering fault, not as a camera operator.
+    const amp = shot.handheld ?? 0;
+    const [sx, sy] = amp > 0 ? shake(t, amp, 3, 1.4) : [0, 0];
 
     // Move the focus point toward the centre of the frame.
     const [fx, fy] = shot.focus ?? [w / 2, h / 2];

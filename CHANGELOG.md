@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.15.0
+
+- **No more jitter.** handheld defaulted to 1.2 px of *per-frame hash* noise,
+  so every frame of every shot was displaced by up to a pixel in a random
+  direction. It now defaults to 0 and, when a shot asks for it, the noise is
+  smooth interpolated value noise. Measured on a locked-off shot, consecutive
+  frames differ by 0.03 luma instead of a visible shift.
+- **levels.shoulder / levels.lift**: highlight compression and shadow lift in
+  the LUT. A cream set otherwise climbs straight to paper white and every prop
+  reads as a cutout.
+
 Notable changes, newest first. The engine is versioned in `package.json`; the
 storyboards in the repo are tested against the same version.
 

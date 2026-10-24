@@ -180,7 +180,7 @@ export const LOOKS = {
     vignette: { color: '#6b4a2a', alpha: 0.14 },
     // the cream world needs a black point of its own, or every frame sits in
     // the top third of the range
-    levels: { black: 0.2, white: 0.98, gamma: 0.92, sat: 1.06, warm: 0.15 },
+    levels: { black: 0.2, white: 0.98, gamma: 0.92, sat: 1.06, warm: 0.15, shoulder: 0.32 },
     calm: ['#ece0c8', '#c6b48f', '#d9c6a2', '#9d8767', '#241c14', '#7a6a55', '#a89a82', '#b06a2c', '#e08a3a', '#d9b98a', 0.3, 0.9],
     mid: ['#f0e4cc', '#cbb58d', '#ddc9a3', '#94805f', '#241c14', '#6f5f49', '#9c8a70', '#c2702a', '#f0952f', '#e6c79a', 0.45, 1.0],
     hot: ['#f5e8cc', '#d3b98d', '#e6cfa6', '#a98d63', '#1f170f', '#7d6748', '#b09a74', '#d9741f', '#ffb347', '#f0cf9f', 0.7, 1.15],
