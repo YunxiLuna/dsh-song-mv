@@ -371,9 +371,9 @@ function drawGrid(g, p, el, fr) {
 }
 
 function drawFigure(g, p, el, fr, tv) {
-  // A body, not a stick: head, shoulders, torso, two arms, two legs. Poses are
-  // a handful of angles, so a person can stand, walk, sit, lean or reach, and
-  // `keys` can move them across a shot.
+  // A silhouette rather than a stick: one filled path made of a head, a coat
+  // that widens at the hem, and tapered limbs. Strokes with round caps read as
+  // a pictogram; a filled outline reads as a person at 8% of the frame.
   const pose = el.pose ?? 'stand';
   const H = Math.abs(fr.h) || 240;
   const W = Math.abs(fr.w) || H * 0.42;
@@ -381,81 +381,96 @@ function drawFigure(g, p, el, fr, tv) {
   const line = paint(p, el.stroke, null);
   const t = tv ?? 0;
 
-  const headR = H * 0.085;
+  const headR = H * 0.072;
+  const headY = -H * 0.42;
   const shoulderY = -H * 0.30;
   const hipY = H * 0.06;
+  const hemY = hipY + H * 0.10;
+  const footY = H * 0.5;
+  const shoulderW = W * 0.20;
+  const hipW = W * 0.15;
   const lean = el.lean ?? 0;
+  const swing = pose === 'walk' ? Math.sin(t * (el.stride ?? 3.1)) * H * 0.09 : 0;
+
+  // A tapered limb from (x0,y0) to (x1,y1), width w0 at the root, w1 at the end.
+  const limb = (x0, y0, x1, y1, w0, w1) => {
+    const dx = x1 - x0, dy = y1 - y0;
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = -dy / len, ny = dx / len;
+    g.moveTo(x0 + nx * w0 / 2, y0 + ny * w0 / 2);
+    g.lineTo(x1 + nx * w1 / 2, y1 + ny * w1 / 2);
+    g.lineTo(x1 - nx * w1 / 2, y1 - ny * w1 / 2);
+    g.lineTo(x0 - nx * w0 / 2, y0 - ny * w0 / 2);
+    g.closePath();
+  };
 
   g.save();
   g.rotate(lean);
 
-  // legs
-  const legSwing = pose === 'walk' ? Math.sin(t * (el.stride ?? 3.1)) * H * 0.13 : 0;
-  const spread = pose === 'sit' ? H * 0.02 : W * 0.16;
-  g.strokeStyle = fill;
-  g.lineCap = 'round';
+  g.beginPath();
 
+  // legs (or the folded legs of a seated figure)
   if (pose === 'sit') {
-    g.lineWidth = H * 0.075;
-    g.beginPath();
-    g.moveTo(-spread, hipY); g.lineTo(-spread * 0.6, hipY + H * 0.26);
-    g.lineTo(-spread * 0.4, hipY + H * 0.40);
-    g.moveTo(spread, hipY); g.lineTo(spread * 0.6, hipY + H * 0.26);
-    g.lineTo(spread * 0.4, hipY + H * 0.40);
-    g.stroke();
+    limb(-hipW * 0.7, hipY, -hipW * 1.5, hipY + H * 0.20, W * 0.17, W * 0.13);
+    limb(-hipW * 1.5, hipY + H * 0.20, -hipW * 1.7, hipY + H * 0.32, W * 0.13, W * 0.10);
+    limb(hipW * 0.7, hipY, -hipW * 0.2, hipY + H * 0.22, W * 0.17, W * 0.13);
+    limb(-hipW * 0.2, hipY + H * 0.22, hipW * 0.2, hipY + H * 0.34, W * 0.13, W * 0.10);
   } else {
-    g.lineWidth = H * 0.085;
-    g.beginPath();
-    g.moveTo(-spread, hipY); g.lineTo(-spread - legSwing * 0.5, H * 0.5);
-    g.moveTo(spread, hipY); g.lineTo(spread + legSwing * 0.5, H * 0.5);
-    g.stroke();
+    limb(-hipW * 0.55, hemY, -hipW * 0.75 + swing, footY, W * 0.16, W * 0.11);
+    limb(hipW * 0.55, hemY, hipW * 0.75 - swing, footY, W * 0.16, W * 0.11);
   }
 
-  // torso
-  g.lineWidth = H * 0.16;
-  g.beginPath();
-  g.moveTo(0, shoulderY + H * 0.02);
-  g.lineTo(0, hipY);
-  g.stroke();
-
-  // arms
-  const armSwing = pose === 'walk' ? -legSwing * 0.8 : 0;
-  g.lineWidth = H * 0.055;
-  g.beginPath();
+  // arms: hanging, or raised for `reach`
   if (pose === 'reach') {
-    g.moveTo(-W * 0.06, shoulderY + H * 0.05);
-    g.lineTo(W * 0.30, shoulderY - H * 0.05);
-    g.moveTo(W * 0.06, shoulderY + H * 0.05);
-    g.lineTo(W * 0.26, shoulderY + H * 0.12);
-  } else if (pose === 'sit') {
-    g.moveTo(-W * 0.06, shoulderY + H * 0.05);
-    g.lineTo(-W * 0.14, hipY + H * 0.02);
-    g.moveTo(W * 0.06, shoulderY + H * 0.05);
-    g.lineTo(W * 0.18, hipY - H * 0.02);
+    limb(-shoulderW * 0.85, shoulderY + H * 0.02, -shoulderW * 2.4, shoulderY - H * 0.16, W * 0.12, W * 0.09);
+    limb(shoulderW * 0.85, shoulderY + H * 0.02, shoulderW * 2.2, shoulderY - H * 0.05, W * 0.12, W * 0.09);
   } else {
-    g.moveTo(-W * 0.05, shoulderY + H * 0.05);
-    g.lineTo(-W * 0.09, hipY - H * 0.04 + armSwing);
-    g.moveTo(W * 0.05, shoulderY + H * 0.05);
-    g.lineTo(W * 0.09, hipY - H * 0.04 - armSwing);
+    const a = pose === 'sit' ? 0.10 : 0.02;
+    limb(-shoulderW * 0.9, shoulderY + H * 0.03, -shoulderW * 1.15, hipY + H * a + swing * 0.4, W * 0.115, W * 0.085);
+    limb(shoulderW * 0.9, shoulderY + H * 0.03, shoulderW * 1.15, hipY + H * a - swing * 0.4, W * 0.115, W * 0.085);
   }
-  g.stroke();
 
-  // head + shoulders
+  // coat: shoulders down to a hem that flares slightly
+  g.moveTo(-shoulderW, shoulderY);
+  g.quadraticCurveTo(-shoulderW * 1.08, (shoulderY + hipY) / 2, -hipW * 1.18, hemY);
+  g.quadraticCurveTo(0, hemY + H * 0.035, hipW * 1.18, hemY);
+  g.quadraticCurveTo(shoulderW * 1.08, (shoulderY + hipY) / 2, shoulderW, shoulderY);
+  g.quadraticCurveTo(0, shoulderY - H * 0.03, -shoulderW, shoulderY);
+  g.closePath();
+
+  // neck
+  limb(0, shoulderY, 0, headY + headR * 0.8, W * 0.13, W * 0.11);
+
   g.fillStyle = fill;
-  g.beginPath();
-  g.ellipse(0, shoulderY - headR * 1.15, headR, headR * 1.06, 0, 0, Math.PI * 2);
   g.fill();
+
+  // head, drawn after the body so the neck joins cleanly
   g.beginPath();
-  g.ellipse(0, shoulderY + H * 0.02, W * 0.13, H * 0.035, 0, 0, Math.PI * 2);
+  g.ellipse(0, headY, headR, headR * 1.08, 0, 0, Math.PI * 2);
   g.fill();
+
+  // hair / hat: a cap over the skull is what makes a silhouette read at distance
+  if (el.hair !== false) {
+    g.beginPath();
+    g.ellipse(0, headY - headR * 0.12, headR * 1.06, headR * 0.92, 0, Math.PI, Math.PI * 2);
+    g.fill();
+  }
+
+  // a bag in one hand, because every commuter has one
+  if (el.bag) {
+    g.beginPath();
+    g.rect(shoulderW * 1.1, hipY + H * 0.02, W * 0.14, H * 0.10 * (el.bagScale ?? 1));
+    g.fill();
+  }
 
   if (line) {
     g.strokeStyle = line;
-    g.lineWidth = 2;
+    g.lineWidth = Math.max(1.5, H * 0.006);
     g.beginPath();
-    g.ellipse(0, shoulderY - headR * 1.15, headR, headR * 1.06, 0, 0, Math.PI * 2);
+    g.ellipse(0, headY, headR, headR * 1.08, 0, 0, Math.PI * 2);
     g.stroke();
   }
+
   g.restore();
 }
 
