@@ -213,13 +213,21 @@ for (const [i, shot] of (sb.shots ?? []).entries()) {
     mean = Math.max(mean, a.mean);
     lit = Math.max(lit, a.lit);
   }
-  const box = subjectBox(els);
+  // A type card is a page: one flat ground plus type. Asking it for a wide
+  // tonal range or nine occupied cells is asking it to stop being a page.
+  const page = shot?.scene?.type === 'typeOnly';
+  // Element-based rules apply only to shots that are built from elements:
+  // a `field` shot is composed from primitives, so 'subject coverage' would
+  // be invented. This is the false-positive class that made the gates
+  // untrustworthy.
+  const hasEls = Array.isArray(els) && els.length > 0;
+  const box = hasEls ? subjectBox(els) : null;
   const area = box?.area ?? 0;
   cells = cellCoverage(els);
 
 
-  if (box && !page && area < T.subjectMin) problems.push(`subject ${(area * 100).toFixed(0)}% of frame (want ≥ ${T.subjectMin * 100}%) → raise size / lower cameraAmount`);
-  if (box && area > T.subjectMax) problems.push(`subject ${(area * 100).toFixed(0)}% (want ≤ ${T.subjectMax * 100}%) → the prop is eating the frame`);
+  if (hasEls && box && !page && area < T.subjectMin) problems.push(`subject ${(area * 100).toFixed(0)}% of frame (want ≥ ${T.subjectMin * 100}%) → raise size / lower cameraAmount`);
+  if (hasEls && box && area > T.subjectMax) problems.push(`subject ${(area * 100).toFixed(0)}% (want ≤ ${T.subjectMax * 100}%) → the prop is eating the frame`);
   if (tones < T.tonesMin) problems.push(`only ${tones} colour masses → the frame is too empty → add a texture layer or a second plane`);
   if (tones > T.tonesMax) problems.push(`${tones} colour masses → the frame is noise; cut a layer or unify the palette`);
   // A dawn or night shot is supposed to crush its shadows: hold those to a
@@ -229,9 +237,6 @@ for (const [i, shot] of (sb.shots ?? []).entries()) {
   // an exposure requirement, not a hard ceiling — honour shot.night the same
   // way the p10 floor already does.
   const night = shot?.palette === 'dawn' || shot?.palette === 'fade' || shot?.night === true;
-  // A type card is a page: one flat ground plus type. Asking it for a wide
-  // tonal range or nine occupied cells is asking it to stop being a page.
-  const page = shot?.scene?.type === 'typeOnly';
   const floor = night ? 3 : T.p10Min;
   if (p10 < floor) problems.push(`shadows at ${p10.toFixed(0)} luma (want ≥ ${floor}) → raise the dawn palette or the light`);
   if (!night && !page && spread < T.spreadMin) problems.push(`tonal range ${spread.toFixed(0)} (want ≥ ${T.spreadMin}) → add a strong light or a dark foreground`);
@@ -245,7 +250,7 @@ for (const [i, shot] of (sb.shots ?? []).entries()) {
   // The 9-cell grid asks elements to spread across the frame; it only applies
   // to the elements lane (a shot with an `elements` array). Field and typeOnly
   // shots compose the picture from textures and lyrics, not elements.
-  if (els && !page && cells < T.cellsMin) problems.push(`content in ${cells}/9 cells → spread elements across the frame`);
+  if (hasEls && !page && cells < T.cellsMin) problems.push(`content in ${cells}/9 cells → spread elements across the frame`);
   if (mean < T.darkMean) darkShots++;
   if (mean >= T.brightMean) brightShots++;
   if (mean >= 26) litShots++;

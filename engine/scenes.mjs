@@ -1501,7 +1501,9 @@ export function designed(ctx, tv, f, P = { start: 0 }) {
     const buckets = new Map();
     for (const el of P.elements) {
       const d = el.depth ?? 0.5;
-      const px = Math.min(maxBlur, Math.abs(d - focusD) * maxBlur * 1.6);
+      // Type never defocuses: an out-of-focus label is an unreadable label.
+      const px = el.kind === 'text' ? 0
+        : Math.min(maxBlur, Math.abs(d - focusD) * maxBlur * 1.6);
       const b = px < 1.2 ? 0 : Math.min(maxBlur, Math.max(2, Math.round(px)));
       if (!buckets.has(b)) buckets.set(b, []);
       buckets.get(b).push(el);
@@ -1522,7 +1524,7 @@ export function designed(ctx, tv, f, P = { start: 0 }) {
       let farPx = 0, nearPx = 0;
       for (const el of P.elements) {
         const d = el.depth ?? 0.5;
-        const px = Math.min(maxBlur, Math.abs(d - focusD) * maxBlur * 1.6);
+        const px = el.kind === 'text' ? 0 : Math.min(maxBlur, Math.abs(d - focusD) * maxBlur * 1.6);
         if (px < 1.2) { sharp.push(el); continue; }
         if (d < focusD) { behind.push(el); farPx = Math.max(farPx, px); }
         else { ahead.push(el); nearPx = Math.max(nearPx, px); }
