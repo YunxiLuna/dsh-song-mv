@@ -93,6 +93,70 @@ for (const [i, shot] of (sb.shots ?? []).entries()) {
   rows.push([id, type, `${els.length}`, `${planes}/3`, hor ? 'yes' : 'no', problems.length ? `← ${problems.join('; ')}` : 'ok']);
 }
 
+// Repetition across the whole film: the same motif in a third of the shots is
+// the single most common way a generated film starts to look like a loop.
+const motifUse = new Map();
+const layerUse = new Map();
+for (const shot of sb.shots ?? []) {
+  const p2 = shot.scene?.params ?? {};
+  if (shot.scene?.type !== 'field') continue;
+  if (p2.motif) motifUse.set(p2.motif, [...(motifUse.get(p2.motif) ?? []), shot.id ?? '?']);
+  const l = p2.layer ?? 'paper';
+  layerUse.set(l, [...(layerUse.get(l) ?? []), shot.id ?? '?']);
+}
+const fieldCount = (sb.shots ?? []).filter((s2) => s2.scene?.type === 'field').length;
+const CAP = Math.max(2, Math.ceil(fieldCount / 3));
+for (const [k, ids] of motifUse) {
+  if (ids.length > CAP) {
+    console.log(`\nmotif \`${k}\` carries ${ids.length} of ${fieldCount} field shots (cap ${CAP}): ${ids.join(', ')}.`);
+    console.log('A repeated motif is a refrain, not a shot list: vary it or give it a different job.');
+    failed++;
+  }
+}
+for (const [k, ids] of layerUse) {
+  if (ids.length > CAP + 1) {
+    console.log(`\nlayer \`${k}\` carries ${ids.length} of ${fieldCount} field shots (cap ${CAP + 1}): ${ids.join(', ')}.`);
+    failed++;
+  }
+}
+
+// Repetition: five shots of the same water and the same boat is not a film, it
+// is a wallpaper loop. Two in a row is a motif; three is a rut.
+const RUN_MAX = 2;
+const sig = (shot) => {
+  const t = shot.scene?.type;
+  const p2 = shot.scene?.params ?? {};
+  if (t === 'field') return `field:${p2.layer ?? 'paper'}:${p2.motif ?? 'none'}`;
+  if (t === 'typeOnly') return 'type';
+  if (t === 'designed') {
+    const layers = (p2.elements ?? []).filter((e) => e.kind === 'plane' || e.kind === 'band').length;
+    return `designed:${layers}:${(p2.elements ?? []).length}`;
+  }
+  return t ?? '?';
+};
+const runIds = [];
+let runLen = 0;
+let runKey = null;
+for (const shot of sb.shots ?? []) {
+  const k = sig(shot);
+  if (k === runKey) {
+    runLen++;
+    runIds.push(shot.id ?? '?');
+    if (runLen > RUN_MAX) {
+      console.log(`\nrepetition: ${runIds.join(' → ')} all render \`${k}\`.`);
+      console.log(`At most ${RUN_MAX} consecutive shots may share a layer+motif: change one of them, or move it to another section.`);
+      failed++;
+      runIds.length = 0;
+      runLen = 0;
+    }
+  } else {
+    runKey = k;
+    runLen = 1;
+    runIds.length = 0;
+    runIds.push(shot.id ?? '?');
+  }
+}
+
 const w = [22, 12, 6, 6, 6];
 const pad = (s, n) => String(s).padEnd(n);
 console.log(

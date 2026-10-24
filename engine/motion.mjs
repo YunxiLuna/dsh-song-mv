@@ -109,6 +109,16 @@ export function shake(t, amp = 3, seed = 1, rate = 1.6) {
  *   focus: [x, y]                what the move centres on (default frame centre)
  *   handheld: 0 .. 6             px of smooth sway (default 0 — opt in)
  */
+/**
+ * The camera vocabulary, in one place: `doctor` and the docs both read it, so a
+ * move cannot exist in the engine and be missing from the list a storyboard is
+ * checked against.
+ */
+export const CAMERA_MOVES = [
+  'push', 'pull', 'panL', 'panR', 'driftUp', 'driftDown',
+  'tiltUp', 'tiltDown', 'rollCW', 'rollCCW', 'arc', 'none',
+];
+
 export class Camera {
   constructor(width = 1920, height = 1080) {
     this.w = width;

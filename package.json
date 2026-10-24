@@ -1,6 +1,6 @@
 {
   "name": "dsh-song-mv",
-  "version": "0.17.0",
+  "version": "0.18.0",
   "private": false,
   "type": "module",
   "description": "Code-rendered music videos: looks, declarative elements, camera moves, beat-synced lyrics.",
@@ -53,5 +53,8 @@
     "lyrics",
     "generative"
   ],
-  "icon": "./icon.svg"
+  "icon": "./icon.svg",
+  "scripts": {
+    "bench": "node tools/bench.mjs"
+  }
 }

@@ -40,6 +40,10 @@ const T = {
   tonesMin: 3, tonesMax: 18,            // distinct colour masses in the frame
   p10Min: 18, spreadMin: 40,            // luma floor and dynamic range
   cellsMin: 5,                          // 3x3 cells with content
+  meanFloor: 24, meanFloorNight: 18,    // nothing on screen below this
+  litMin: 0.25,                         // share of pixels above 24
+  darkMean: 30, darkFilmMax: 0.6,       // a shot under 30 counts as a dark shot
+  brightMean: 55,                       // and this is what counts as daylight
   textContrast: 38,                     // text luma vs plate luma
 };
 
@@ -109,7 +113,14 @@ function analyse(canvas) {
     }
     return 255;
   };
-  return { p10: pct(0.1), p50: pct(0.5), p90: pct(0.9), tones };
+  // mean luma and the share of the frame above 24: a film can be night-time
+  // and still be photographed, but it cannot be 8% grey edge to edge
+  let lsum = 0;
+  for (let i = 0; i < hist.length; i++) lsum += hist[i] * (i * 8 + 4);
+  const mean = lsum / total;
+  let litPx = 0;
+  for (let i = 3; i < hist.length; i++) litPx += hist[i];
+  return { p10: pct(0.1), p50: pct(0.5), p90: pct(0.9), mean, lit: litPx / total, tones };
 }
 
 /** Union box of elements that read as subjects (not texture, not labels). */
@@ -175,6 +186,9 @@ function textContrast(els, pal) {
 
 const rows = [];
 let failed = 0;
+let darkShots = 0;
+let brightShots = 0;
+let litShots = 0;
 const times = [0.3, 0.6, 0.9];
 
 for (const [i, shot] of (sb.shots ?? []).entries()) {
@@ -186,7 +200,7 @@ for (const [i, shot] of (sb.shots ?? []).entries()) {
   const errs = els ? validateElements(els, `${id}.elements`) : [];
   if (errs.length) problems.push(`${errs.length} invalid element(s)`);
 
-  let tones = 0, p10 = 255, spread = 0, cells = 0;
+  let tones = 0, p10 = 255, spread = 0, cells = 0, mean = 0, lit = 0;
   for (const k of times) {
     const t = (shot.start ?? 0) + dur * k;
     if (process.env.MV_DEBUG) console.error('  frame', id, t.toFixed(1));
@@ -196,41 +210,83 @@ for (const [i, shot] of (sb.shots ?? []).entries()) {
     tones = Math.max(tones, a.tones);
     p10 = Math.min(p10, a.p10);
     spread = Math.max(spread, a.p90 - a.p10);
+    mean = Math.max(mean, a.mean);
+    lit = Math.max(lit, a.lit);
   }
   const box = subjectBox(els);
   const area = box?.area ?? 0;
   cells = cellCoverage(els);
 
 
-  if (box && area < T.subjectMin) problems.push(`subject ${(area * 100).toFixed(0)}% of frame (want ≥ ${T.subjectMin * 100}%) → raise size / lower cameraAmount`);
+  if (box && !page && area < T.subjectMin) problems.push(`subject ${(area * 100).toFixed(0)}% of frame (want ≥ ${T.subjectMin * 100}%) → raise size / lower cameraAmount`);
   if (box && area > T.subjectMax) problems.push(`subject ${(area * 100).toFixed(0)}% (want ≤ ${T.subjectMax * 100}%) → the prop is eating the frame`);
   if (tones < T.tonesMin) problems.push(`only ${tones} colour masses → the frame is too empty → add a texture layer or a second plane`);
   if (tones > T.tonesMax) problems.push(`${tones} colour masses → the frame is noise; cut a layer or unify the palette`);
   // A dawn or night shot is supposed to crush its shadows: hold those to a
   // far lower floor instead of asking every frame for the same exposure.
+  // Same idea for tonal spread: the rain / mono looks author their palettes
+  // midtone-compressed by design (docs/looks.md), so the ≥40 range target is
+  // an exposure requirement, not a hard ceiling — honour shot.night the same
+  // way the p10 floor already does.
   const night = shot?.palette === 'dawn' || shot?.palette === 'fade' || shot?.night === true;
+  // A type card is a page: one flat ground plus type. Asking it for a wide
+  // tonal range or nine occupied cells is asking it to stop being a page.
+  const page = shot?.scene?.type === 'typeOnly';
   const floor = night ? 3 : T.p10Min;
   if (p10 < floor) problems.push(`shadows at ${p10.toFixed(0)} luma (want ≥ ${floor}) → raise the dawn palette or the light`);
-  if (spread < T.spreadMin) problems.push(`tonal range ${spread.toFixed(0)} (want ≥ ${T.spreadMin}) → add a strong light or a dark foreground`);
-  if (cells < T.cellsMin) problems.push(`content in ${cells}/9 cells → spread elements across the frame`);
+  if (!night && !page && spread < T.spreadMin) problems.push(`tonal range ${spread.toFixed(0)} (want ≥ ${T.spreadMin}) → add a strong light or a dark foreground`);
+  // Exposure is not a taste question. A night look may sit low, but not this
+  // low: at mean < 26 there is nothing on screen but texture.
+  const meanFloor = night ? T.meanFloorNight : T.meanFloor;
+  if (mean < meanFloor) {
+    problems.push(`mean luma ${mean.toFixed(0)} (want ≥ ${meanFloor}) → raise post.levels.gamma / black, or lighten the palette`);
+  }
+  if (lit < T.litMin) problems.push(`only ${(lit * 100).toFixed(0)}% of pixels above 24 luma → the frame is a texture, not a picture`);
+  // The 9-cell grid asks elements to spread across the frame; it only applies
+  // to the elements lane (a shot with an `elements` array). Field and typeOnly
+  // shots compose the picture from textures and lyrics, not elements.
+  if (els && !page && cells < T.cellsMin) problems.push(`content in ${cells}/9 cells → spread elements across the frame`);
+  if (mean < T.darkMean) darkShots++;
+  if (mean >= T.brightMean) brightShots++;
+  if (mean >= 26) litShots++;
   const p2 = pal(shot.palette ?? 'still');
   const tc = textContrast(els, p2);
   if (tc != null && tc < T.textContrast) problems.push(`label contrast ${tc.toFixed(0)} (want ≥ ${T.textContrast}) → change fill or plate role`);
 
   if (problems.length) failed++;
-  rows.push([id, `${(area * 100).toFixed(0)}%`, `${tones}`, `${p10.toFixed(0)}`, `${spread.toFixed(0)}`, `${cells}/9`,
+  rows.push([id, `${(area * 100).toFixed(0)}%`, `${tones}`, `${p10.toFixed(0)}`, `${spread.toFixed(0)}`, `${cells}/9`, `${mean.toFixed(0)}`,
     problems.length ? `← ${problems.join('; ')}` : 'ok']);
 }
 
-const w = [18, 6, 6, 6, 6, 6];
+const w = [18, 6, 6, 6, 6, 6, 6, 6];
 const pad = (s, n) => String(s).padEnd(n);
-console.log(pad('shot', w[0]) + pad('subj', w[1]) + pad('tones', w[2]) + pad('p10', w[3]) + pad('range', w[4]) + pad('grid', w[5]) + 'verdict');
+console.log(pad('shot', w[0]) + pad('subj', w[1]) + pad('tones', w[2]) + pad('p10', w[3]) + pad('mean', w[6]) + pad('range', w[4]) + pad('grid', w[5]) + 'verdict');
 console.log('-'.repeat(112));
-for (const r of rows) console.log(pad(r[0], w[0]) + pad(r[1], w[1]) + pad(r[2], w[2]) + pad(r[3], w[3]) + pad(r[4], w[4]) + pad(r[5], w[5]) + r[6]);
+for (const r of rows) console.log(pad(r[0], w[0]) + pad(r[1], w[1]) + pad(r[2], w[2]) + pad(r[3], w[3]) + pad(r[6], w[6]) + pad(r[4], w[4]) + pad(r[5], w[5]) + r[7]);
 console.log('-'.repeat(112));
 
+// Film-level tone: a mood is allowed, an unbroken murk is not. The rule is
+// about contrast between sections, not about overall brightness — a rain film
+// can be sombre as long as some of it is lit.
+const n = rows.length;
+const darkShare = n ? darkShots / n : 0;
+const brightShare = n ? brightShots / n : 0;
+const allowDark = !!(sb.post && sb.post.allowDark);
+if (n >= 4 && darkShare > T.darkFilmMax) {
+  const msg = `${(darkShare * 100).toFixed(0)}% of the shots sit under mean luma ${T.darkMean}`
+    + ` (max ${(T.darkFilmMax * 100).toFixed(0)}%) → the film is dark from the first shot to the last.`
+    + ` Give some section a lit mood, or set post.allowDark if the whole song really is night.`;
+  console.log(`\n${msg}`);
+  if (!allowDark) failed++;
+}
+if (n >= 6 && brightShare === 0) {
+  console.log(`\nno shot reaches mean luma ${T.brightMean}: every frame is murk.`
+    + ` Raise post.levels.gamma / white, or lighten the look's palette ladder.`);
+  if (!allowDark) failed++;
+}
 if (failed) {
-  console.log(`${failed} shot(s) do not hold up as a picture. Rules: docs/imagery.md`);
+  const shotsFlagged = rows.filter((r) => r[7] !== 'ok').length;
+  console.log(`${shotsFlagged} shot(s) flagged, ${failed} finding(s) in all. Rules: docs/GUIDE.md`);
   process.exit(1);
 }
 console.log('every shot holds up as a picture.');

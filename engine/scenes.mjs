@@ -1175,6 +1175,7 @@ export function field(ctx, tv, f, P = { 'start': 0.0 }) {
     g.fillText(P.caption, 96, 1006);
   }
 
+
   // Opt-in: slicing through a settled lyric line usually reads as a decode
   // error rather than as energy, so `field` stays clean unless asked.
   if (P.glitch && f.onsetPulse > 0.55) glitchSlices(g, f, tv);
@@ -1512,21 +1513,37 @@ export function designed(ctx, tv, f, P = { start: 0 }) {
     if (ordered.length === 1 && ordered[0][0] === 0) {
       drawElementsBand(g, p, P.elements, tv, f, { width: 1920, height: 1080, start: s, cam, order: 'depth', key, backlight: P.backlight ?? 0 });
     } else {
-      const { layers, small } = bandSurfaces();
-      let li = 0;
-      for (const [blurPx, list] of ordered) {
-        if (blurPx === 0) {
-          drawElementsBand(g, p, list, tv, f, { width: 1920, height: 1080, start: s, cam, order: 'depth', key, backlight: P.backlight ?? 0 });
-          continue;
-        }
-        const slot = layers[li % layers.length];
-        li++;
+      // Two soft plates, not one per blur radius: everything behind the focus
+      // plane goes onto one low-resolution scratch, everything in front onto
+      // another, and the sharp elements are drawn between them. Blurring every
+      // bucket separately cost 2.5x the whole rest of the frame.
+      const { layers } = bandSurfaces();
+      const behind = [], ahead = [], sharp = [];
+      let farPx = 0, nearPx = 0;
+      for (const el of P.elements) {
+        const d = el.depth ?? 0.5;
+        const px = Math.min(maxBlur, Math.abs(d - focusD) * maxBlur * 1.6);
+        if (px < 1.2) { sharp.push(el); continue; }
+        if (d < focusD) { behind.push(el); farPx = Math.max(farPx, px); }
+        else { ahead.push(el); nearPx = Math.max(nearPx, px); }
+      }
+      const plate = (list, px, slot) => {
         slot.g.setTransform(1, 0, 0, 1, 0, 0);
         slot.g.clearRect(0, 0, BAND_W, BAND_H);
-        drawElementsBand(slot.g, p, list, tv, f, { width: BAND_W, height: BAND_H, start: s, cam, order: 'depth', key, backlight: P.backlight ?? 0 });
-        compositeBlurred(g, slot.c, blurPx);
+        drawElementsBand(slot.g, p, list, tv, f, {
+          width: BAND_W, height: BAND_H, start: s, cam, order: 'depth', key,
+          backlight: P.backlight ?? 0,
+        });
+        compositeBlurred(g, slot.c, px, 1);
+      };
+      if (behind.length) plate(behind, farPx, layers[0]);
+      if (sharp.length) {
+        drawElementsBand(g, p, sharp, tv, f, {
+          width: 1920, height: 1080, start: s, cam, order: 'depth', key,
+          backlight: P.backlight ?? 0,
+        });
       }
-      void small;
+      if (ahead.length) plate(ahead, nearPx, layers[1 % layers.length]);
     }
   }
   g.restore();
@@ -1611,7 +1628,10 @@ export function typeOnly(ctx, tv, f, P = { 'start': 0.0 }) {
 
   const lyr = lyricsOf(ctx);
   const { cur, next } = lyr.activeAt(tv);
-  const lines = P.lines ?? (cur ? [cur.text] : []);
+  // A type card must never be an empty page. If no lyric is on screen, hold the
+  // shot's own line (`still`); if the song has no lyrics at all, the scene falls
+  // through to a resting rule further down.
+  const lines = P.lines ?? (cur ? [cur.text] : (P.still ? [P.still] : []));
   const size = P.size ?? 104;
   const layout = P.layout ?? 'stack';
   const leftX = 300;
@@ -1637,8 +1657,11 @@ export function typeOnly(ctx, tv, f, P = { 'start': 0.0 }) {
     g.restore();
   }
 
-  // the whole block rises a little as the line ages: the frame is never still
+  // The block rises as the line ages, then keeps breathing: check-motion
+  // samples a shot mid-way, and a card that settles after three seconds fails
+  // it. The sway is a fraction of a line height, enough to read as alive.
   const rise = Math.min(26, age * 9);
+  const sway = Math.sin(tv * 0.6) * 5 + Math.sin(tv * 0.23 + 1.7) * 3;
 
   if (P.kicker) {
     g.font = `600 20px ${MONO}`;
@@ -1656,7 +1679,7 @@ export function typeOnly(ctx, tv, f, P = { 'start': 0.0 }) {
     const k = clamp01((tv - appear) / 0.5);
     if (k <= 0) return;
     const e = 1 - Math.pow(1 - k, 3);
-    const dy = (1 - e) * 46 - rise;
+    const dy = (1 - e) * 46 - rise + sway;
 
     let x, y;
     if (layout === 'column') {
@@ -1710,6 +1733,23 @@ export function typeOnly(ctx, tv, f, P = { 'start': 0.0 }) {
     g.restore();
     g.globalAlpha = 1;
   });
+
+
+  // instrument: when the song has no words here, the page must still be a shot:
+  // a bar that breathes on the beat, plus the section name
+  if (!lines.length) {
+    const k = 0.5 + 0.5 * Math.sin(tv * 0.8);
+    const bw = 220 + 460 * k;
+    g.save();
+    g.fillStyle = hexA(p.accentHot, 0.55);
+    g.fillRect(960 - bw / 2, 540 + sway, bw, 6);
+    g.globalAlpha = 0.5;
+    g.font = `600 18px ${MONO}`;
+    g.fillStyle = hexA(p.sub, 0.9);
+    g.textAlign = 'center';
+    g.fillText(P.kicker ?? '\u00b7 \u00b7 \u00b7', 960, 600 + sway);
+    g.restore();
+  }
 }
 
 
